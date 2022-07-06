@@ -1,0 +1,1629 @@
+Release CMTK-3.3.1p2 (2021-03-27):
+
+(r5443) Fixed: compilation errors using C++17.
+
+Release CMTK-3.3.1p1 (2019-01-24):
+
+(r5440) Fixed: compilation error when building with DCMTK 3.6.4.
+
+
+Release CMTK-3.3.1 (2016-01-23):
+
+(r5419) Fixed: bug in PolynomialXform class, which lead to out-of-range
+	array access in the parameter vector when trying to get the
+	linear matrix of a zero-degree transform (which doesn't exist).
+(r5418) Fixed: some compiler warnings revealed by SolarisStudio compiler.
+
+
+Release CMTK-3.3.0 (2016-01-16):
+
+(r5404) Fixed: removed 32bit (31, really) limit on number of pixels in
+	an image, at least for most algorithms. Volume reconstruction
+	will continue to be limited due to 32bit integers being used as
+	vector indexes in AlgLib numerical code.
+(r5394) Changed: limit number of images in groupwise registration to 255.
+	This reduces memory consumption significantly.
+(r5392) Fixed: compile problems with VisualStudio Express 2015.
+(r5391) Fixed: recent system DCMTK versions on Fedora (perhaps elsewhere too)
+        have lost constants for ACR-NEMA legacy field tags. Re-added those 
+        for compatibility.
+
+
+Release CMTK-3.2.3 (2015-02-01):
+
+(r5381) Fixed: link error on Win64 due to missing implementation of a
+        conversion method for 64bit integers.
+(r5380) Fixed: MXML 2.8 is broken; when this version is detected, fall back to
+        bundled library version.
+(r5378) Fixed: bashisms fixed by merging downstream Debian patch; see
+        https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=772217. Patch
+        provided by Michael Gilbert <mgilbert@debian.org>.
+(r5377) Fixed: on Windows, recursive directory creation failed if the given
+        path begin with a drive letter. Thanks to Florian Schulze,
+        fschulze@vrvis.at, for finding and fixing the problem.
+(r5375) Fixed: when DICOM files have fractional rescale slope, read image as
+        floating point, not integer.
+(r5375) Fixed: "dcm2image" tool did not respect command line options to ignore
+        acquisition number tags and disable orientation checks.
+(r5374) Fixed: bashisms in two scripts.
+
+
+Release CMTK-3.2.2 (2014-08-01):
+
+(r5368) Fixed: XformList::ApplyInPlace terminated concatenation when an
+	inverted B-spline FFD transformation was encountered.
+(r5365) Fixed: binary VTK files were previously written (illegally) as
+	double-precision data.
+(r5353) Fixed: wrong binary paths in munger.pl script
+
+
+Release CMTK-3.2.1 (2014-06-19):
+
+(r5355) Added: ADNI phantom detection and quantification (exposed via the
+	"detect_adni_phantom" tool) now computes maximum dimming, i.e.,
+	minimum intensity of a 10mm sphere relative to the 90th percentile
+	of intensities over all such spheres.
+(r5353) Added: global scale factor support in "vol2csv" tool
+(r5347) Fixed: missing coordinate information in Siemens mosaic files must
+	be treated as zero.
+
+
+Release CMTK-3.2.0 (2014-05-01):
+
+(r5344) Added: manually force CNR centroid fallback in
+	"detect_adni_phantom" tool.
+(r5340) Packaging: RPM distribution now split into "core" (binaries) and
+	"devel" (libraries and headers)	packages.
+(r5340) Packaging: TGZ packages no longer include "CMTK-M.m.p/" release
+	name prefix for stored files.
+(r5337) Added: CMTK_BINARY_DIR and CMTK_LIRBARY_DIR as used in a number of
+	shell scripts included with CMTK can now be overridden by setting
+	them before executing one such script. This should allow CMTK to
+	work when it was installed/unpacked into a path other than the
+	installation path defined during build.
+(r5333) Added: "epiunwarp" now has optional sixth positional parameter to
+	export reverse deformation field to a given path.
+(r5327) Added: time units are now written to XML sidecar files for TR, TE,
+	TI, and dwell time.
+(r5324) Added: sign of the phase encode direction is now extracted from
+	Siemens EPI files and written to XML sidecar files. This
+	information apparently is NOT available in GE files at all.
+(r5316)	Changed: "registration" and "registrationx" tools no longer
+	support the "603" special degree-of-freedom notation for no-scale
+	affine transformations. This is now denoted, more logically, as
+	"3303". Newly supported special notations have been added: "3003"
+	and "3033" for affine with no rotation or scale, and affine with
+	no rotation, respectively.
+(r5309) Added: symmetric affine registration now also supports in-plane
+	transformations.
+(r5307) Improved: "imagemath" tool's "--average" operator no longer
+	returns missing values for a pixel where a single one of the input
+	images has missing (padded) data.
+(r5303) Added: new "geomatch" tool can compare grid dimensions, pixel
+	sizes, and/or transformation matrices of two or more images to
+	ensure that they match.
+(r5297) Added: "dof2mat" tool can now print only 3x3 top-left submatrix.
+(r5293) Added/Changed: "mat2dof" tool no longer has unintuitive
+	single-character options for xform modifiers. Instead, it now
+	supports writing to a single, simple transformation file.
+(r5281) Added: "sequence" tool can now optionally create histogram files
+	in CSV format.
+(r5270)	Changed: where appropriate, image processing operators now set the
+	data class of their outputs as "LABEL". This includes a variety of
+	binarization/thresholding techniques, label combination
+	algorithms, and segmentations.
+(r5260) Added: distance map-based erosion of multi-label fields, both in
+	the library and exposed via the new "--erode-distance-multilabel"
+	operation of "convertx"
+(r5250) Fixed: compilation errors with Visual C++ 2013.
+(r5243) Added: exact isotropic resampling in UniformVolume class, exposed
+	at command line via new "--resample-exact" operation of the
+	"convertx" tool.
+(r5240) Added: interpolator classes now issue a warning message to the
+	console when an unsuitable interpolator (i.e., cubic, spline,
+	linear, sinc) is used on data flagged as "labels."
+(r5238) Changed: "reformatx" tool now propagates floating image data class
+	(label or grey) to output, as represented by the "intent_code"
+	header field when written in NIfTI format.
+(r5238) Added: new operations in "convertx" tool, "--labels" and "--grey",
+	set and reset the "intent_code" field in NIfTI images to
+	NIFTI_INTENT_LABEL and 0, respectively.
+(r5230) Added: the "xform2dfield" tool can now write deformation fields
+	for use by FSL's "applywarp" tool.
+(r5230) Added: XformIO can now write deformation fields in NIfTI format,
+	albeit very inflexibly so.
+(r5222) Improved: region-based DataGrid filters now use OpenMP
+	acceleration where available (but they no longer report progress
+	or allow user cancellation).
+(r5220) Added: freq_dim, phase_dim, slice_dim as well as slice times and
+	acquisition order fields are now properly set in NIFTI headers for
+	files created by "dcm2image," so long as these data were available
+	in the input DICOM files.
+(r5214) Added: slice times (relative to first slice in each volume) are
+	now extracted from Siemens DICOM files and written to XML sidecar
+	files by "dcm2image" tool.
+
+
+Release CMTK-3.1.0 (2014-02-21):
+
+(r5203)	Changed: "dcm2image" tool now returns exit code 3 if one or more
+	image stacks could not be built due to non-uniform slice spacing
+	that exceeds the given "--tolerance" threshold.
+(r5196) Added: "vol2csv" tool now accepts user-define column labels for
+	the optional density-weighted volumes.
+(r5195) Added: DICOM import now supports Philips tags for diffusion
+	information (b Value and gradient direction vectors).
+(r5187) Changed: "fview" GUI now expects only a transformation sequence on
+	the command line. To override fixed and/or moving image (or to
+	provide them, if they are not stored within the transformation),
+	use the new optional arguments, "--fixed" and "--moving".
+(r5185) Added: for convenience, histogram- and mean/sdev-based intensity
+	matching are now also available in "convertx", in addition to
+	"imagemath".
+(r5183) Fixed: use of MacPorts should be optional, even if its directory
+	tree exists.
+(r5183) Fixed: CUDA should be optional and build config file clearly
+	labelled if it is used.
+(r5166) Added: polynomial transformation model and class to fit such
+	transformations to landmarks.
+(r5157) Changed: "reformatx" no longer corrects Jacobian maps for global
+	scale by default. This seems like a more natural way to do this.
+(r5154) Added/changed: "unwarp_image_phantom" tool now supports (and
+	defaults to) polynomial transformations, rather then B-spline
+	FFD.
+
+
+Release CMTK-3.0.0 (2014-01-09):
+
+(r5122) Fixed: wrong offset computation broke fitting of B-spline
+	transformation to transformation series.
+(r5121) Fixed: over 200 code defects identified by static analysis
+	(Coverity Scan) have been fixed over the past 200 or so commits.
+(r5110) Fixed: fitting a B-spline transformation to an XformList that
+	contained a nonrigid transformation, specifically a numerically
+	inverted one, did not properly exclude locations where the
+	inversion failed or the input location was outside the B-spline
+	grid's support region.
+(r5097) Added: "streamxform" tool can now apply only affine components of all
+        provided transformations, via the "--affine-only" option (contribution
+        from Greg Jefferis).
+(r5087) Changed: "dwi_find_bad_slices" now more appropriately named
+        "dwi_mask_bad_slices". Tool can now mask detected bad slices, convert
+        image pixel type, and write masked images.
+(r5012) Added: "dcm2image" tool (and cmtkIO library) now determine "dwell
+        time" from DICOMs from both GE and Siemens scanners. This is necessary
+        for applying fieldmap-based distortion corrections.
+(r5008) Added: new "resample" operator for "convertx" tool to create
+        near-isotropic resampled images with the same FOV as the original.
+(r4983) Added: new "stream_pixels" tool should make it easier to stream image
+        data through pipeline-based tools such as Camino's.
+(r4978) Changed: "dcm2image" tool no longer embeds study information into
+	Nifti header; this is for subject privacy when data are going to
+	be shared.
+(r4977) Improved: "detect_adni_phantom" tool has new options,
+	"--refine-xform", "--refine-outliers", and
+	"--exclude-outliers". Detection has also been made more robust by
+	ordering 10mm spheres by increasing distance from phantom center.
+(r4892) Changed: by default, "mk_analyze_hdr" and "mk_nifti_hdr" now
+	create a header with "Byte" as the image pixel data type, and
+	"axial" as the orientation (for "mk_analyze_hdr" only).
+(r4855) Added: "detect_adni_phantom" tool (and library classes) now state
+	in the output XML file whether certain fallback conditions were
+	triggered. These usually hint at problems with the imaging
+	phantom, e.g., missing spheres.
+(r4852) Added: new tool, "interleaved_bad_slices" identifies volumes (and
+	slices) in a time series such as rs-fMRI where the entire volume
+	is bad due to motion during the interleaved acquisition.
+(r4819)	Added: "describe" tool can now describe transformation files as
+	well as images.
+(r4797) Changed: "dcm2image" tool now enforces uniform volume spacing up
+	to given tolerance level. Volumes with non-uniformity exceeding
+	the threshold, no volume will be created, thus avoiding creation
+	of invalid data.
+(r4792) Added: multi-iteration and residual-controlled fitting of B-spline FFD
+        to phantom landmarks.
+(r4787) Added: new "vol2csv" tool writes regional volumes of a label image
+	to a CSV files, optionally using a text file with label
+	descriptions, a (Jacobian) pixel volume scale map, and one or more
+	"density" maps, such as tissue probabilities etc.
+(r4774) Removed: the "contributed" N-CANDA pipeline scripts have been
+	moved out of the CMTK code tree and into the N-CANDA Data Core
+	repository, hosted at http://nitrc.org/svn/ncanda-datacore
+(r4770)	Improved: speed-up of FFT-based matched filter sphere detection.
+	Benefits primarily ADNI phantom detection (faster by up to about
+	25-30 percent)
+(r4760) Changed: "CMTK_BUILD_WRAPPER" is now turned ON by default (i.e.,
+	wrapper script "cmtk" is built, and all binaries are installed
+	into a private directory)
+(r4758) Added: "dcm2image" tool has new option, "--no-progress" to disable
+	progress reporting (for batch operation).
+
+
+Release CMTK-2.3.0 (2013-05-16):
+
+(r4751) Added: ADNI phantom detection tool now also functions when the
+	60mm SNR sphere is displaced.
+(r4732)	Added: ADNI phantom detection tool can now robustly bootstrap gross
+	orientation from CNR spheres if one or both of the 15mm phantom
+	spheres are missing.
+(r4719) Added: dilation and erosion in anisotropic images by distance, not by
+        pixels.
+(r4708)	Added: ADNI phantom detection is now more robust in the presence
+	of missing, cropped, or low-contrast marker spheres.
+(r4703)	Added/Changed: dcm2image now only exports potentially protected,
+	identifying meta-data (e.g., UIDs, paths, dates) into XML files if
+	specifically instructed to do so.
+(r4699) Added: ADNI phantom detection tool now recognizes when marker spheres
+        are (partially) outside image field of view. Optional "tolerant" mode
+	can override program termination.
+(r4690) Added: ADNI phantom description file (XML) now contains estimated
+	scale factors and nonlinearity.
+(r4684) Added: pixel search tool, "pxsearch." For now, this simply
+	searches for the pixel with the maximum value in a local
+	neighborhood.
+(r4680) Fixed: use of stat() rather than stat64() broke access to files on
+	large file systems.
+(r4674)	Fixed: FFTW dependency was not really options due to incorrect
+	configuration conditions (Issue #6841).
+(r4670) Fixed: an error in WarpXform::ReplaceInitialAffine broke
+        convert_warp tool, specifically the computation of a fractional
+        transformation. New test cases have also been added to cover this.
+(r4662) Fixed: check whether FFTW libraries were found rather than relying on
+        CMTK_USE_FFTW option being set.
+(r4654) Added: N-CANDA script for creating GRE field maps using FSL/prelude
+(r4652) Fixed: OpenMP problems using VisualStudio
+(r4648) Fixed: configuration problem with CMake 2.8.10 due to changed path to
+        CMakeSystem.cmake file.
+(r4622) Added: N-CANDA structural pipeline in "contrib/ncanda/"
+(r4595) Added: more channels of the SRI24 atlas added to the CMTK
+        repository. The atlas is also now installed and packaged with the
+        toolkit.
+(r4586) Added: Otsu thresholding now integrated into "mrbias" tool.
+
+
+Release CMTK-2.2.6 (2012-10-29):
+
+(r4573) Fixed: DICOM stacker segfaulted
+(r4571) Updated: NrrdIO has been updated to current upstream code base from
+	https://teem.svn.sourceforge.net/svnroot/teem/NrrdIO/trunk
+(r4562) Fixed: center of mass was not computed properly if Inf or NaN data
+        were present in the image.
+
+
+Release CMTK-2.2.5 (2012-10-22):
+
+(r4551) Added: "dcm2image" tool can now substitute components of the input
+        image paths into generated output images - "%0" represents the input
+        file name (for the first image in a multi-file stack), "%1" through
+        "%9" the hierarchical directories in order of decreasing depth, i.e.,
+        from deepest to highest.
+(r4529) Added: image type (magnitude, real, phase) can now be extracted from
+        Siemens DICOM files.
+(r4527) Fixed: incorrect image origin was previously computed for Siemens
+        mosaic DICOM images (Issue #6754).
+(r4522) Added: more DICOM information is now put into the dcm2image-generated
+        XML files, such as MR imaging frequency; study, series, and
+        frame-of-reference UIDs; device serial number; and intensity rescale
+        intercept and slope values. Also gave all tags with values straight
+        from the DICOM tags a "dicom:" XML namespace prefix.
+(r4513) Added: for GE DICOM images, the raw data type (magnitude, phase, real,
+	or imaginary) is now written into the output XML files by the
+	"dcm2image" tool.
+(r4510) Refactored: more logical API for symmetric matrix eigensystem
+	computation. Symmetric matrices are now actually enforced, whereas
+	previously it was silently assumed all matrices handed to the
+	eigensystem functions were symmetric.
+(r4504) Added: "dcm2image" tool can now write single-slice images also
+	(these were skipped previously). Use the new
+	"--write-single-slices" command line switch to activate this
+	behaviour.
+
+
+Release CMTK-2.2.4 (2012-08-24):
+
+(r4498) Fixed: some PACS-processed Siemens mosaic DICOM files have lost
+	some DCM tags; missing information must be parsed from CSA headers
+	instead.
+(r4485) Fixed: echo planar image unwarping created NaN deformations if any of
+        the image columns was all zeroes, because no center of mass could be
+        computed. For these cases, deformation is now forced to zero
+        initially.
+
+
+Release CMTK-2.2.3 (2012-08-10):
+
+(r4475) Added: new "contrib" directory for third-party contributions;
+	initially Greg Jefferis' "munger" Perl script.
+(r4470) Added: new "groupwise_reformat" script simplifies reformatting all
+	images in a set aligned with one of the groupwise registration
+	tools.
+(r4458) Fixed: older versions of FFTW than 3.3.2 now supported again.
+(r4456) Fixed: when reading NRRD files with missing "spaceOrigin" entry,
+	CMTK now substitutes a zero-vector for the origin, rather than
+	keeping NrrdIO's not-a-number values.
+(r4454) Fixed: the index-to-physical matrix of a UniformVolume was not
+	properly modified when downsampling with pixel selection (rather than
+	averaging).
+(r4449) Added: when installed system mxml library is found, its version is
+	determined, and the bundled library is automatically built if the
+	system library is outdated (pre-2.7).
+(r4447) Added: new tool, "dwi_find_bad_slices," to detect bad slices in
+	sets of diffusion-weighted images.
+(r4447) Changed: image-to-physical matrix and slice spacing now work
+	properly (as in, without generating Inf/NaN values) when splitting
+	volume into single slices and re-stacking it. This has caused some
+	baselines to change, because the volume field of view sizes have
+	seen subtle changes as a result.
+
+
+Release CMTK-2.2.2 (2012-06-18):
+
+(r4438) Added: new tools "fit_spline_xform" and "fit_affine_xform" to fit
+    a single B-spline or affine transformation, respectively, to a list of
+    concentated, optionally inverted, transformations.
+(r4420) Fixed: "reorient" tool can now force reorientation when original image
+    orientation is overridden by command line argument.
+(r4400) Obsoleted: the "mip" tool as well as library code exclusively used by
+    it (e.g., support for PGM file format; volume/ray accumulators) have been
+    removed.
+(r4385) Changed: the "fit_spline_xform" tool has been renamed to
+    "fit_spline_dfield" to make room for a new tool which will fit splines to
+    arbitrary transformation sequences.
+(r4369) Added: new "streamxform" tool to apply sequences of transformations to
+    point coordinates read from standard input. The old tool, "gregxform", has
+    been deprecated and may be removed in a future release of CMTK.
+(r4351) Changed: all nonrigid transformation files, "registration," are now
+    written gzip-compressed. (Linear transformation files are generally much
+    smaller and continue to be written as plain uncompressed files.)
+(r4347) Added: "dcm2image" tool has two new options, "--filter" and
+    "--exclude", to include or exclude DICOM files selectively based on
+    matching a provided text to values of user-specified DICOM tags.
+(r4326) Added: ADNI phantom detector now also computes SNR and four CNR
+    estimates. These are all also written to the XML phantom description
+    file.
+(r4317) Fixed: older versions of DCMTK do not provide lossless-JPEG header
+    file <dcmtk/dcmjpls/djdecode.h>, but it isn't needed anyway.
+
+
+Release CMTK-2.2.1 (2012-05-07):
+
+(r4313) Fixed: previous release accidentally installed and packaged the entire
+    source tree, rather than just the Licenses/ directory. This has been fixed.
+
+
+Release CMTK-2.2.0 (2012-05-04):
+
+(r4280) Updated: bundled MiniXML (mxml) library is now version 2.7
+(r4256) Changed: the "search" and "replace" parts of the CMTK_MOUNTPOINTS
+    variable have been switched. The new order is far more intuitive.
+(r4240) Fixed: one of the functions computing Jacobian matrices for B-spline
+    FFD transformations was broken, leading to slightly skewed inverse
+    transformations in various tools. Due to direct optimization of the
+    inversion error, the actual inversion results were still accurate within
+    the given tolerance.
+(r4195) Added: tool for unwarping images using B-spline free-form deformation
+    computed from a reference scan of the ADNI phantom.
+(r4180) Added: detection of the landmarks in the Magphan EMR051 structural
+    imaging phantom (a.k.a. "ADNI Phantom"). Both as a library class and as a
+    command line tool ("detect_adni_phantom").
+(r4158) Added: Otsu single-threshold binarization in library as well as
+    "convertx" tool.
+(r4131) Added: sphere detection filter based on FFT-based fast bipolar filter
+    kernel convolution. Requires CMTK to be configured with FFTW support.
+(r4096) Added: new tool, "fit_affine_xform_landmarks" to fit affine
+    transformations to sets of landmark pairs. Also added supporting classes
+    for fitting and landmark I/O.
+(r4090) Added: two new tools, "fibxform" and "fib2image", for applying
+    transformation sequences to UNC Fber Tracking outputs and for marking
+    fibers in discrete images.
+(r4074) Fixed: "dcm2image" no longer accepts printf-style substitution code
+    "%d" for image index. This was never safe, as format string is supplied by
+    user (Issue #6203).
+(r4068) Added: CMTK now comes with a built-in model of the ADNI structural
+    imaging phantom (a.k.a. Magphan EMR051). The new tool "mk_adni_phantom"
+    can be used to create a digital image of the phantom for testing and
+    potentially registration purposes.
+(r4052) Added: "epiunwarp" tool can now initialize deformation by matching
+    centers of mass for each row. This seems to greatly improve unwarping
+    results.
+(r4050) Changed: "dcm2image" now defaults to "sort-by-instance" file ordering;
+    this seems more generally useful than sorting by file names. Also changed
+    names of the command line options.
+(r4048) Fixed: system DCMTK (from MacPorts) can now be properly configured on
+    MacOS.
+(r4041) Fixed: get correct image origin for Siemens mosaic DICOM files from
+    CSA header.
+(r4036) Added: the "dcm2image" tool now ooptionally creates an XML sidecar
+    file for each stacked image, which contains imaging parameters including
+    b-values and diffusion-weighting vectors for DW-MRI.
+(r4024) Obsolete: removed unused 2d/2d registration classes.
+(r4016) Refactored: finally merged old-style SMP and non-SMP elastic voxel
+    matching functional classes.
+(r4004) Fixed: full OpenMP support now available on MacOS.
+(r3984) Changed: "dcm2image" tool no longer accepts "--ge-extensions" command
+    line option. Instead, all supported vendor-specific extensions are now
+    automatically activated based on the vendor tag in the actual input files.
+(r3981) Fixed: numerous Visual C++ 2010 compiler warnings, including
+    potentially serious use of "this" pointer in member initialization.
+(r3969) Added: cmtk::RegressionTracker class for checksum-based tracking down
+    of regression problems.
+(r3964) Fixed: cmtk::ImagePairSimilarityJointHistogram constructor was using
+    "this" pointer before properly constructing object (Visual C++ warning).
+
+
+Release CMTK-2.1.3 (2012-03-05):
+
+(r3953) Refactored: the Shape-Based Averaging and Interpolation code was moved
+    from the "sbai.cxx" tool source code to a new library class,
+    "cmtk::LabelCombinationShapeBasedAveragingInterpolation"
+(r3941) Added: the "sba" tool for Shape-Based Averaging (and the underlying
+    library class) can now optionally detect and exclude local outlier pixels
+    based on distribution of distances over all inputs at each pixel and for
+    each label.
+(r3928) Refactored: the Shape-Based Averaging code was move from the "sba.cxx"
+    tool source code to a new library class,
+    "cmtk::LabelCombinationShapeBasedAveraging"
+(r3922) Obsoleted: the "average_edt" tool has been replaced by two new tools,
+    "sba" and "sbai", for Shape-Based Averaging (and Interpolation). The "sba"
+    tool implements the "--interpolate-image" mode of "average_edt", whereas
+    "sbai" implements the "--interpolate-distance" mode. "Windowed" averaging
+    of intensity images was not really useful and is no longer supported.
+(r3919) Changed: "average_edt" tool now represents labels as short integers,
+    not bytes, so it can now support label values up to 65535.
+
+
+Release CMTK-2.1.2 (2012-02-22):
+
+(r3902) Fixed: compilation errors using latest zlib (1.2.6); also fixed
+    configuration problem on Mac with system zlib and MacPorts zlib being
+    incompatible.
+(r3880) Added: "fit_affine_xform" can fit an affine transformation to a
+    nonrigid transformation, either a deformation field or a B-spline
+    free-form deformation. The "fit_warp_xform" tool can use this
+    functionality now to estimate the global affine component of a deformation
+    before fitting a spline to the residual.
+(r3873) Added: "dof2mat" tool to convert affine transformation in
+    degree-of-freedom representation to 4x4 transformation matrix.
+(r3847) Added: "lvote" local voting tool can now normalize local, patch-based
+    similarity scores with global image-to-atlas correlations.
+(r3837) Added: "fit_spline_xform" tool to fit B-spline free-form deformation
+    to pixel-wise deformation field  .
+(r3821) Added: "groupwise_warp" tool can now protect regions from deformation
+    if an "exclusion" mask is provided.
+(r3814) Added: label combination by locally-weighted voting and local
+    shape-based averaging (tools "lvote" and "lsba") has been moved out of the
+    "Unstable" library and added to the default CMTK build set.
+(r3805) Added: script for creating all officially distributed MacOS builds is
+    now included as core/scripts/PackageMacOS
+(r3799) Fixed: prevent empty region traversal in cmtk::RegionIndexIterator
+(r3751) Fixed: "groupwise_affine" was not actually using template image
+    specified on the command line.
+(r3730) Fixed: histogram-based intensity matching should preserve intensity
+    range.
+(r3728) Added: "groupwise_init" tool can now center aligned image ensemble
+    inside template field of view ("--center-template" command line switch).
+(r3722) Added: "registrationx" tool can now compute transformations restricted
+    to in-plane components for a selected plane (xy, xz, or yz). This is
+    useful for eddy current distortion correction in EPI unwarping,
+(r3719) Added: new "correct_dwi_distortion" script applies distortion
+    correction to an entire series of diffusion-weighted images.
+
+
+Release CMTK-2.1.1 (2012-01-10):
+
+(r3711) Added: new "epiunwarp" tool implements an algorithm by Holland et
+    al. (NeuroImage 2010) for unwarping echo-planar MR images (e.g., DWI)
+    using two images acquired with reversed phase encoding direction.
+(r3698) Changed: by default, "dcm2image" now embeds concatenated DICOM tags
+    StudyID and StudyDate into "description" fields of Analyze, NIFTI, and
+    Nrrd output images.
+(r3628) Added: "similarity" tool now computes absolute and relative image
+    differences; this feature is used by the applications test driver script
+    to perform tolerant comparisons.
+(r3608) Removed: support for MPI distributed-memory parallelism has been
+    retired. This was rarely used, poorly tested, and due to ever larger SMP
+    systems no longer very critical.
+(r3604) Refactored: unified DICOM reader utility class.
+(r3591) Added: simple tissue class segmentation tool based on EM optimization
+    of a Gaussian mixture model.
+
+
+Release CMTK-2.1.0 (2011-11-21):
+
+(r3570) Fixed: incorrect output image orientation when providing target image
+    geometry for "reformatx", "volume_injection", or "volume_reconstruction"
+    on the command line.
+(r3547) Added: as a configuration option ("CMTK_BUILD_WRAPPER"), a wrapper
+    script "cmtk" can now be built for consistent access to CMTK's tools while
+    avoiding name collisions with other tools installed on the same
+    system. When this option is selection, all actual binaries are installed
+    in the bin/ subdirectory of the configured *library* install
+    directory. Only the wrapper script itself is installed in the configured
+    binary install directory.
+(r3542) Added: "fview" tool can now automatically deduce fixed and moving
+    image paths from the applied sequence of transformations, if these paths
+    were stored within the transformation file.
+(r3529) Added: CMTK can now read Siemens MR DICOM images in mosaic format.
+(r3522) Fixed: TypedArray data arrays are now de-allocated with proper
+    deallocator (free() or new[]()), depending on how they were allocated
+    (Issue #6213).
+(r3505) Added: build configuration can now switch between building bundled
+    DCMTK DICOM library and using installed system libraries (Issue #6182; see
+    also Issue #6184).
+(r3484) Added: cmtk::CommandLine class can now output program descriptions in
+    'nroff' markup sutibale for creating man pages. In addition, the build
+    system now creates these man pages, if "BUILD_MANPAGES" option is set. The
+    man pages will also be installed and packaged. This was added in response
+    to a request from Yaroslav Halchenko.
+(r3471) Added: multi-class STAPLE algorithm can now be limited to "disputed"
+    pixels to improve results (via the "--mstaple-disputed" operation of
+    "imagemath" tool).
+(r3442) Added: build configuration can now switch between building bundled
+    MXML library and using installed system library.
+(r3438) Fixed: proactively fixed a problem reading and writing very large
+    gzip-compressed files. Thanks to Yaroslav Halchenko
+    <debian@onerussian.com> for pointing this out.
+    See http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=587912
+(r3420) Added: when registration tools (warp, warpx, registration,
+    registrationx) are interrupted, suffix "-partial" is added to any results
+    files that may be written. This serves to prevent accidental use of
+    incomplete results.
+(r3415) Added: the "dcm2image" tool can now embed selected meta information
+    (such as Patient Name) as "image description" in Analyze, Nifti, and NRRD
+    output files. This information is preserved by other CMTK tools (e.g.,
+    "convertx") and is now also displayed by the "describe" tool.
+(r3408) Refactored: global static cmtk::StackBacktrace object is now
+    initialized in each "main.cxx" file, or in "cmtkSafeMain" wrapper, rather
+    than forcing CMake to re-compile initializer code into separate .o file
+    for every binary.
+(r3405) Added: computation of fixed control points is now parallel in "warp"
+    and "warpx" tools if OpenMP support is enabled.
+(r3400) Fixed: the thread-related environment variables (mostly
+    CMTK_NUM_THREADS) are now checked by tyhe tool-independent "cmtkSafeMain"
+    wrapper, which guarantees that they will be observed by every CMTK command
+    line tool. This should avoid over-parallelization with OpenMP.
+(r3385) Added: "mrbias" and "mrbias_cuda" tools now have an option for
+    automatic foreground threshold selection based on estimation of image
+    noise. For that purpose, the tools now also support defining a padding
+    value for the  input image (typically zero).
+
+
+Release CMTK-2.0.0 (2011-08-15):
+
+(r3360) Added: Hausdorff distance for binary shapes
+(r3344) Added: fast (linear time) region variance filter based on fast region
+    mean filter.
+(r3337) Added: fast (linear-time) region mean filter
+(r3312) Fixed: crash in non-SMP "warp" B-spline registration.
+(r3305) Fixed: volume_injection tool selected improper padding value due to
+    problem in the type traits implemented by the cmtkBase library.
+(r3303) Fixed: when moving image had float/double data type, the
+    "registration" tool accidentally used zero as padding value and, as a
+    result, ignored image background.
+(r3300) Fixed: broken array indexing made "mcwarp" tool crash when intensity
+    correction was activated. Also produced incorrect results.
+(r3288) Fixed: external projects can now find and use CMTK properly. The
+    "validation" tree has been moved out of "core/" and now uses CMTK's core like
+    any other external project.
+(r3277) Changed/fixed: padding flag and value are now propagated to the new
+    array when converting the scalar data type of an existing array.
+
+
+Release CMTK-1.7.1 (2011-07-14):
+
+(r3270) Added: new "probe" tool implements "volume probe" functionality
+    formerly provided by "describe" tool, with several extensions such as
+    flexible coordinate specification and interpolation modes.
+(r3265) Fixed: potential infinite loop in "imagemath" tool when images of
+    different size were on the stack for a multi-image operation.
+(r3263) Fixed: crash in SMP nonrigid registration due to incorrect use of
+    number of tasks submitted to thread pool.
+(r3256) Added: missing "histogram pruning" operator in "convertx" tool.
+(r3198) Added: symmetric optimization of forward and inverse affine
+    transformation in "registrationx" tool.
+(r3190) Fixed: when reformatting a moving image, the reformatted image now
+    inherits the input image's padding flag and value. This addresses an issue
+    with reformatted floating-point images breaking Slicer and other tools do
+    to "Inf" used for padding by default. The registration tools can now be
+    run with the "--pad-flt" flag to set input image padding, which then
+    propagates into the reformatted output image.
+(r3187) Added: new "destripe" tool removes stripe artifacts from accross-slice
+    intensity variations.
+(r3176) Added: "convertx" tool now supports downsampling by pixel selection in
+    addition to downsampling by pixel averaging.
+
+
+Release CMTK-1.7.0 (2011-04-18):
+
+(r3158) Fixed: allow OpenMP to be disabled by initial CMake cache file, which
+    is necessary on MacOS to allow automated release building.
+(r3151) Added: two-level command line help; "--help" now prints only basic
+    options, whereas "--help-all" prints all options including those marked as
+    "advanced." this should make it easier for new users to get a quick
+    overview of essential functions.
+(r3120) Fixed: Nrrd library was not properly splitting file paths containing
+    Windows-style separators ('\' rather than '/').
+(r3118) Improved: bundled NrrdIO library was updated to 1.11.0 from 1.9.0.
+(r3114) Fixed: CMTK now compiles with OpenMP support using VisualStudio
+    compilers. All OpenMP parallel loops are now using signed, rather than
+    unsigned, loop variables, thus complying with older (pre-3) versions of
+    the OpenMP standard.
+(r3079) Fixed: reading of uncompressed BioRad (and potentially other format)
+    files was broken (patch by Greg Jefferis).
+(r3062) Fixed: problem with directory creation due to difference path
+    separator characters for Windows vs. POSIX.
+(r3059) Fixed: broken thread semaphores on Windows due to incorrect
+    conditional compilation. (This bug was introduced in r1661.)
+(r3031) Fixed: problem with instantiation of static smart pointer "NULL"
+    object led to crashes on MacOS-X platform. This has been fixed.
+(r3031) Fixed: linking errors when building shared libraries on MacOS, caused
+    by missing library dependencies.
+(r3003) Improved: CMTK now employs a toolkit-wide, centralized, fine-grain
+    framework for diagnostic outputs of user-defined detail level. Every
+    command line tool supports the new "--verbose-level" option; output
+    previously generated using the deprecated "--verbose" option is at level
+    "1" and can thus be enabled by "--verbose-level 1".
+(r2974) Added: initial support for Grand Central Dispatch, including GCD-based
+    backend for thread pool parallel model.
+(r2919) Added: regional image filters, such as mean, variance, and third
+    moment added to "convertx" tool.
+(r2908) Changed: "--verbose" output now written to standard output, not
+    standard error (Issue #5496).
+(r2905) Added: "reformatx" and "convertx" tools now support "unsigned int"
+    pixel data type for output files (Issue #5497).
+
+
+Release CMTK-1.6.1 (2011-02-17):
+
+(r2886) Fixed: crash in "fview" fusion viewer application due to incorrect
+    interface of class derived from QApplication.
+    (see http://lists.trolltech.com/qt-interest/2008-01/thread00570-0.html)
+(r2884) Added: all CMTK command line tools now support the "--version"
+    argument to print the CMTK version number.
+(r2878) Fixed: "--write-reformatted" option of "registration" tool was
+    broken. In some cases, the wrong image was used as the fixed image.
+(r2871) Fixed: pipe-based decompression was broken on MacOSX
+(r2869) Improved: "runcheck" tool is now more sensitive to stdlibc++ version.
+
+
+Release CMTK-1.6.0 (2011-02-01):
+
+(r2858) Added: "mk_phantom_3d" can now read MRS voxel location and size from
+    GE DICOM files and draw voxel in correct location, if image grid with matching
+    physical scanner coordinates is imported.
+(r2845) Improved: "volume_injection" and "volume_reconstruction" tools now
+    produce reconstructed images with physical space coordinates matching
+    those of the first input image.
+(r2829) Improved: various fixes related to packaging. Now uses non-default
+    installation prefix, renamed installation components, added missing RPM
+    fields.
+(r2818) Fixed: building using MacOSX SDK 10.4u now uses gcc version 4.0, which
+    works, unlike the default gcc-4.2 with this SDK version.
+(r2815) Added: CMTK build can now be configured to use bundled sqlite3
+    library, even when system library is available. This avoids problems with
+    multiple different versions of the library in different SDKs on MacOS.
+(r2815) Updated: bundled sqlite3 library has been updated to version 3.7.4.
+(r2805) Added: "convertx" can now apply mapping functions to replace image
+    values with other values or with padding data.
+(r2794) Improved: better default configurations for MacOS-X builds.
+(r2794) Fixed: packaging and installation directories.
+(r2772) Fixed: label combination by voting now supports up to 32768 labels
+    (was 256).
+(r2768) Removed: unused and redundant "probe_xform" and "average_grey"
+    applications. Use "gregxform" and "reformatx"/"average_images" instead.
+(r2765) Removed: largely unused and incomplete support for building a single
+    "cmtk" binary wrapper for all command line tools.
+(r2760) Removed: now-obsolete "convert" tool has been retired. Operations
+    still missing in "convertx" will be added as the need arises.
+(r2756) Added: "convertx" tool gained two more missing operations from
+    "convert", namely replace padded pixels and pixels with Inf/NaN values.
+(r2752) Improved: addressing all warnings reported by "doxygen", source code
+    documentation has been completed.
+(r2733) Removed: the "congeal", "groupwise_rmi", "congeal_warp", and
+    "groupwise_rmi_warp" tools have been removed. These are replaced by the
+    "groupwise_affine" and "groupwise_warp" tools introduced in the previous
+    release.
+
+
+Release CMTK-1.5.4 (2011-01-13):
+
+(r2714) Changed: all command line tools now default to writing output in NIFTI
+    format, not Analyze, if no output file name is given.
+(r2708) Added: new "groupwise_warp" tool for nonrigid groupwise registration
+    unites the "congeal_warp" and "groupwise_rmi-warp" tools, which will be
+    removed in the next release of CMTK.
+(r2705) Added: new "groupwise_affine" tool for affine groupwise registration
+    unites the "congeal" and "groupwise_rmi" tools, which will be removed in
+    the next release of CMTK.
+(r2695) Fixed: subtle and rare numerical problem leading to NAN values in
+    image-to-physical matrix read from Nifti files with quaternion-based
+    orientation.
+(r2684) Fixed: improved installation and packaging by fixing multiple problems
+    related to CMTK use files and scripts.
+(r2680) Improved: better naming, grouping, and documentation of "film",
+    "volume_injection", and "volume_reconstruction" command line options. Also
+    named equivalent options consistently between these tools.
+(r2664) Fixed: restricting "warpx" tool deformation to certain coordinate
+    directions was broken.
+
+
+Release CMTK-1.5.3 (2010-12-13):
+
+(r2652) Improved: CMTK can now be more flexibly configured to use bundled zlib
+    over existing system zlib. This is partially addressing Issue #5395, with
+    a patch provided by Kent Williams. This also fixes Issue #5382, because
+    we no longer depend on Darwin's broken system zlib.
+(r2629) Fixed: LZMA decompression was broken on i686 due to bug in
+    lzmadec_seek(). The decompression backend classes now use a common fake
+    "seek" implementation if seek is not supported by the low-level backend or
+    broken.
+(r2613) Fixed: "dbtool" was warning of unused command line parameters.
+(r2611) Fixed: properly exit "fview" application with an exception when one of
+    the input images cannot be read.
+
+
+Release CMTK-1.5.2 (2010-12-06):
+
+(r2591) Fixed: previous release accidentally removed the ability of CMTK's
+    image writer to recursively create non-existing directories in the output
+    path.
+
+
+Release CMTK-1.5.1 (2010-12-02):
+
+(r2580) Fixed: segmentation fault when getting cropped subvolume after
+    providing out-of-range cropping boundaries.
+(r2575) Fixed: all output images are now written in the same orientation and
+    pixel array order as the respective input images. Previously, images were
+    written in internal order, i.e., RAS or closest orientation supported by
+    output file format. For backward compatibility, the old behaviour can be
+    turned back on by defining the "CMTK_LEGACY_WRITE_IMAGES_RAS" environment
+    variable.
+(r2563) Fixed: "dcm2image" tool choked on non-DICOM files.
+(r2560) Added: "dcm2image" tool has new option to ignore AcquisitionNumber tag
+    when grouping images, which is useful for Siemens fMRI series. Tool also
+    now warns if images are left over that cannot be assigned to any stack.
+(r2558) Fixed: CMake initial cache files for pre-defined configurations now
+    set cache variables.
+
+
+Release CMTK-1.5.0 (2010-11-17):
+
+(r2544) Added: "similarity" in label mode now prints Jaccard index, J.
+(r2540) Fixed: all command line tools now use a C++-safe exit mechanism based
+    on throwing an exit exception that is caught in a safe main() wrapper
+    function.
+(r2540) Fixed: CommandLine class was leaking memory because some local classes
+    did not have virtual destructors (Issue #5320).
+(r2512) Fixed: SmartPointer::DynamicCastFrom() was leaking memory due to
+    implicit, rather than explicit, call to inherited constructor.
+(r2505) Added: "film" tool now has "--padding-value" option to define a
+    padding value for the input image. Also to get this to work,
+    UniformVolume::GetInterleavedSubvolume() now copies padding flag and value
+    from input data to output.
+(r2502) Fixed: "ReformatVolume::CreateInterpolator" did not actually create a
+    nearest neighbor interpolator when so requested.
+(r2500) Fixed: "imagemath" tool performed incorrect operations for the "exp"
+    and  "sqrt" do to incorrect function wrapper.
+(r2495) Added: "dcm2image" tool can now optionally sort output images by
+    instance numbers of the input image files, rather than by their
+    names. This is useful when using variable-length numbered files that must
+    be stacked in order (e.g., for functional MRI).
+(r2483) Added: "fview" fusion viewer tool can now switch between no
+    transformation (identity), affine-only and full nonrigid transformation.
+(r2479) Fixed: ITK transformations must be in LPS space, regardless of the
+    coordinate spaces of the images being registered.
+(r2467) Fixed: make consistent use of C memory allocator to avoid conflicts
+    between core CMTK and external libraries (e.g., NrrdIO).
+(r2467) Added: "warp" and "warpx" tools have new option, "--relax-to-unfold"
+    to unfold deformation regions with negative Jacobians before continuing
+    at the next resolution level. Hopefully, this will allow more aggressive
+    deformations without incurring folding, thus improving registration
+    accuracy.
+(r2450) Removed: support for pixelwise incompressibility weight maps, which
+    was never really used and hasn't been exposed at the command line for a
+    while.
+(r2445) Fixed: conversion of affine transformation to/from ITK format and
+    native image space failed when fixed and moving images resided in different
+    spaces (fixed image space was used for both of them).
+(r2440) Fixed: newly created transformation objects should, by default, set
+    their coordinate space to CMTK's default space, RAS.
+(r2436) Added: "mk_nifti_hdr" tool to create NIFTI headers from scratch or
+    patch existing headers.
+(r2434) Fixed: "CMakeFiles" directory gets in the way of in-source builds
+    (Issue #5269). Thanks to Dominique Belhachemi for report and fix.
+(r2422) Fixed: "registrationx" tool ignored user specification for transform
+    initializer and always used an identity transformation unless an explicit
+    initial alignment was provided.
+(r2416) Changed: "make_initial_affine" now defaults to writing transformations
+    in CMTK standard RAS space, rather than between native image spaces. This
+    makes much more sense, because in all likelihood it will be other CMTK
+    tools reading these transformations.
+(r2408) Fixed: average images created by the groupwise registration tools did
+    not have proper coordinate space information. Also made the default output
+    image type NIFTI (instead of Analyze) to produce files with fully
+    specified coordinate systems.
+(r2395) Fixed/Added: triplanar viewer now displays RAS physical coordinates of
+    current location; also fixed problem with repeated slice position change
+    after a single mouse click.
+(r2390) Changed: by default, the DICOM image stacker, "dcm2image," now writes
+    NIFTI files with attached header (.nii) rather than Analyze hdr/img
+    pairs. This is because Analyze format does not properly represent the
+    image location and orientation information obtained from the DICOM input
+    images.
+(r2380) Removed: several hundred lines of unused, obsolete code was removed
+    from the Numerics library.
+
+
+Release CMTK-1.4.3 (2010-09-28):
+
+(r2365) Fixed: "xform2dfield" and "xform2scalar" tools did not respect
+    CMTK_NUM_THREADS variable, as they were only using OpenMP directly.
+(r2359) Added: by default, CMTK is now built with support for on-the-fly
+    decompression of bzip2 and lzma-compressed files if libbzip2 and/or
+    liblzmadec and their respective header files are installed on the build
+    system. Also rewrote the decompression class, cmtk::CompressedStream, from
+    scratch to be more easily extended.
+(r2345) Fixed: prevent "dcm2image" tool from trying to read compressed (using
+    gzip, etc.) DICOM files, as these cannot be read by DCMTK right now.
+(r2337) Added: "describe" tool now prints machine-readable image-to-physical
+    space transformation matrix. Also transposed matrix output to make it
+    compatible with "mat2dof" tool.
+(r2329) Improved: poor description of command line arguments in "split" tool.
+(r2327) Fixed: broken Makefiles when source path contained space.
+(r2317) Refactored: eliminated several hundred lines of unused and obsolete
+    code, including several classes.
+(r2309) Fixed: because gcc/OpenMP breaks POSIX semaphores on Cygwin, use
+    CMTK's mutex/condition implementation instead (Issue #4779)
+(r2294) Improved: eliminating calls to floor() improved registration times by
+    another ~10%.
+(r2287) Improved: apparently using histogram entropy is computed faster
+    without OpenMP parallelization, reducing test times for the "warp" tool by
+    about 30%. This should be noticable in production use also. No surprise,
+    actually, because most entropy evaluations are done in parallel on a
+    higher level anyway.
+(r2281) Fixed: "reformatx" tool did not properly initiatialize thread system,
+    therefore running too many OpenMP threads even when CMTK_NUM_THREADS was
+    set.
+
+
+Release CMTK-1.4.2 (2010-08-23):
+
+(r2268) Fixed: various compile errors when compiling Qt support classes using
+    Sun/Oracle compiler.
+(r2261) Refactored: new "XformListIO" class provides a static member function
+    that assembles lists of transformations with optional inversions from
+    string vectors as supplied by the command line parse. This new class is
+    used to unify three instances where this was previously done by code
+    duplication.
+(r2254) Added: new, lightweight "fview" fusion viewer replaces old, broken,
+    and incomplete "fusion" application.
+(r2213) Bugfix: UniformVolume::GridMatches sometimes returned "false" due to
+    differences below the numerical relevance threshold.
+(r2202) Added: "--force-outside-value" command line argument now also offered
+    and implemented for affine registration.
+(r2197) Improved: UniformVolumeInterpoaltor classes now convert input data to
+    Types::DataItem and cache the converted array for faster computation. This
+    particularly speeds up higher-order interpolation with cubic or sinc
+    kernels.
+
+
+Release CMTK-1.4.1 (2010-08-09):
+
+(r2178) Improved: when run as Slicer plugins, GPU-accelerated command line
+    tools now categorize themselves into "->GPU" submenus.
+(r2176) Refactored: command line arguments now passed to CommandLine::Parse,
+    rather than constructor.
+(r2171) Fixed: "new" registration classes (exposed in "registrationx" and
+    "warpx" tools) now respect reference image padding. Also fixed bug that
+    led to loss of padding information during resampling.
+(r2166) Added: "registrationx" tool now supports special number of degrees of
+    freedom, "603", which produces a rigid transformation plus shears, but without
+    scaling (i.e., it uses 6+0+3 parameters of the affine transformation)
+(r2160) Added: on-the-fly median filtering for "registrationx" and "warpx"
+    tools.
+(r2156) Added: root mean squares image similarity measure for "registrationx"
+    and "warpx" tools. This is of course very similar to mean squares (MSD),
+    but exhibits different sensitivity to outliers.
+(r2138) Added: GPU-accelerated levelset tool for CUDA, "levelset_cuda."
+(r2111) Refactored: simple two-phase levelset evolution moved from "levelset"
+    tool into a new Segmentation/ library class, cmtk::SimpleLevelset.
+(r2107) Refactored: UniformVolume::Clone and CloneGrid now return smart
+    rather than dumb pointers.
+(r2103) Added: GPU/cmtkCUDA.h defines macros to safely call CUDA API functions
+    and check their error codes.
+(r2097) Added: a new class, cmtk::ImageSymmetryPlaneCommandLine, together with
+    a derived class template unifies the tools for CPU-based and GPU-based
+    symmetry plane computation.
+(r2094) Added: GPU-supported symmetry plane computation tool, "symplx_cuda",
+    which is used analogously to CPU-based "symplx" tool.
+(r2060) Added: cmtk::ParametricPlane class can now provide the 4x4 matrix of
+    the reflection transformation w.r.t. the plane.
+(r2035) Refactored: all cmtk header files are now included via paths relative
+    to the library parent directory.
+(r2019) Refactored: split new symmetry plane functional into base class and
+    metric-dependent class. Base class will be shared by GPU implementation.
+(r2016) Added: new "symplx" tool that will extend, and ultimately replace, the
+    current "sympl" tool for symmetry plane computation.
+(r2012) Fixed: concurrent memory access problems in GPU kernel to populate
+    histograms on device.
+(r2006) Improved: imagemath tool now prints a warning when more than one image
+    is left on the operation stack. This often indicates a problem with the
+    specified image operations.
+(r2003) Fixed: require compatible version of SQLite (>= 3.5.0), otherwise
+    build bundled library.
+(r1999) Added: "--product" operation for imagemath tool.
+(r1996) Fixed: mrbias_cuda tool and curt validation tool now properly
+    self-identify on the command line and via XML.
+
+
+Release CMTK-1.4.0 (2010-07-12):
+
+- Fixed: header files are now installed in library-specific subdirectories,
+    which is consistent with the source tree.
+- Improved: bundled SQLite is now only built if no system-wide library is
+    found.
+- Added: "imagemath" tool now supports applying single-image operations to the
+    entire stack.
+- Improved: "imagemath" tool now uses deque, not stack, to implement image
+    stack. This way we can perform all-image operations more easily.
+- Improved: log-Intensity histograms are now value scale invariant.
+- Removed: building against VTK is no longer supported.
+- Added: class for histogram population and entropy computation on GPU
+    device.
+- Added: vtkxform tool can now read (and write) binary-coded VTK files.
+- Added: first utility classes (memory allocation and resource management,
+    volume data transfer) for GPU computation using CUDA.
+- Testing: added test name to function mapper cmtk::TestFunctionMap to
+    simplify writing of test drivers.
+- API: some Numerics functions from AlgLib were moved into ::alglib namespace
+    to avoid clashes with functions also defined elsewhere (e.g., gamma, erf,
+    etc).
+- Refactored: thread function within thread pool is now provided with thread
+    index directly, rather having to perform a lookup (Issue #4939).
+- Added: cmtk::CommandLine class prints warning message if not all command
+    line arguments are actually used. This usually points to a usage error.
+- Added: 'vtkxform' tool now accepts list of transformations, each of which
+    can be inverted.
+- API: change interface of SplineWarpXform::getTransformedGridSequence() to
+    isolate "number of points" parameter and make it harder to use this
+    incorrectly.
+- Refactored: use more smart pointers in more places. Standardize Clone() and
+    Create() member functions of different classes.
+- Improved: parallelized computation of FFD smoothness constraint. This
+    greatly improves multicore scaling of nonrigid registration using this
+    constraint.
+- Removed: "describe" tool no longer prints center of mass and first-order
+    moments. If we ever need this, we'll make a separate tool for this.
+- Refactored: further consolidated Vector3D into FixedVector
+- Documentation: marked VTKWrapper library as deprecated.
+
+
+Release CMTK-1.3.1 (2010-06-07):
+
+- Added: "vtkxform" tool to apply transformation to point coordinates in VTK
+    files (does not require VTK support to be enabled or VTK to be
+    installed).
+- Fixed: tiny numerical differences between division and multiplication with
+    the inverse caused failed range check assertion in SplineWarpXform (Issue
+    #4894). This is now fixed by replacing the assertion with a value range
+    truncation. It ain't pretty, but it works.
+- Configuration: added two CMake initial script files in config/ directory,
+    which should support and standardize backward-compatible builds on
+    MacOSX/Intel (Issue #4895; thanks to Greg Jefferis for suggesting these).
+- Added: several features previously implemented only in congeal_warp have
+    been ported into groupwise_rmi_warp. Also added tests for the latter.
+- Refactored: completely reorganised the groupwise registration functional
+    hierarchy - instead of redundant member functions in leaf classes, we are
+    now using template specialization to inject the necessary transformation
+    model-dependent code at the base of the hierarchy.
+- Fixed: previously undetected bug in AffineGroupwiseRegistrationRMI
+    functional effectively led to inverse transformations to be computed.
+- API: renamed CongealingFunctionalBase to more appropriate
+    GroupwiseRegistrationFunctionalXformTemplate and removed unused second
+    template parameter (histogram bin type) from several classes.
+- Improved: CMTK can now determine whether to write compressed (gz) or
+    uncompressed NIFTI images based on the given file name, e.g., image.nii.gz
+    for compressed vs. image.nii for uncompressed. Note that for this to work
+    as expected the "CMTK_WRITE_UNCOMPRESSED" environment vairbale must be
+    set, because otherwise images will be written compressed by
+    default. Also note that CMTK's behaviour with respect to writing
+    compressed  vs. uncompressed files has not changed for all other file
+    formats (Issue #4852).
+- Fixed: when using an unknown image file format suffix, CMTK would state that
+    it would write a RAW3D file instead, but then write nothing. This now
+    defaults to single-file NIFTI, which is actually written (Issue #4852).
+- Refactored: consolidated affine initialization of groupwise registration
+    functionals to reduce code duplication and thus avoid residual unfixed
+    bugs.
+- Improved: when initializing groupwise registrations, translations are now
+    computed with a zero sum over all images. Previously, we aligned all
+    centers with the template FOV center, but there is no reason why this
+    would be a good idea when using, for example, centers of mass of the input
+    images.
+- Added: groupwise registration tools now abort with an error when at least
+    one of the input images get transformed too far outside the FOV. This is
+    detected in cmtk::CongealingFunctionalBase and defaults to requiring at
+    least 1% of reformatted pixels to be inside the FOV of every image. At
+    present, this is not configurable at run time.
+- Removed: support for writing joint histograms.
+- Refactored: value ranges are now handled by Types::Range<T> class
+    template. The specialization typedef'ed as Types::DataItemRange is now
+    used for more intuitive handling of item ranges.
+- Fixed: selection of floating image interpolation method was implemented in
+    warpx tool, but not exposed at the command line.
+- Fixed: auto-cropping by threshold was implemented in image pair registration
+    preprocessor class, but not exposed through the command line interface.
+- Added: padding in convertx tool can now be turned on and off multiple times
+    during the sequence of operations, including the use of different padding
+    values at different times.
+- Added: connected components operator; also added this as a function to
+    convertx tool.
+- Configuration/build: when system zlib is installed, we use it instead of the
+    bundled zlib. This is necessary to avoid version issues when Qt support is
+    activated, because Qt is linked against the system zlib.
+- Distribution: updated version of bundled zlib to 1.2.5, which fixes valgrind
+    warnings among other things. In the process, fixed a configuration file
+    bug by which the system zconf.h file, if present, was included rather than
+    the one configured for CMTK.
+- Fixed: in some cases, TypedArray memory was allocated via malloc() but freed
+    via delete[]. Now everything is consistently using cmtk::Memory (wraps
+    new{} and delete[]) for allocation and deallocation.
+- Fixed: Correlation Ratio similarity measure was broken due to imcomplete
+    copying of class fields in HistogramBase class. This was resolved
+    "accidentally" when unifying and standardizing all copy constructors and
+    assignment operators.
+- Refactored: non-standard copy member functions in various classes have been
+    standardized as operator=() members. Assignment operators and copy
+    constructors that performed only member-wise copies were deleted
+    altogether.
+- API: renamed "InfinitePlane" class to "ParametricPlane" which is more
+    descriptive and precise.
+- Added: CMake configuration of CUDA and OpenCL support for future GPU
+    computations. Currently unused and experimental.
+- Refactored: UniformDistanceMap is now a factory class and no longer directly
+    inherits from UniformVolume.
+- API: renamed "GetDownsampled" member in DataGrid and UniformVolume classes
+    to "GetDownsampledAndAveraged" to clarify that this is a
+    downsampling-and-averaging operation, not just a downsampling.
+- Refactored: greatly improved handling of grid index and region types.
+- Added: SmartConstPointer, based on concepts in Meyer's "More Effective C++"
+    book.
+- Removed: unused classes from the deprecated "Pipeline" library
+- Documentation: describe library groups in doxygen documentation
+- Libraries: all reconstruction-related classes were consolidated in a new
+    component library, "cmtkRecon"
+- Removed: unused cmtk::DirectionSetOptimizer class.
+- Removed: unused member functions of cmtk::Vector that complicate the API and
+    stand in the way of eventually replacing this class with std::valarray.
+- Refactored: where appropriate, catch exceptions by constant references,
+    rather than by value or by non-constant reference.
+
+
+Release CMTK-1.3.0 (2010-04-19):
+
+- Added: a new command line tool, "dbtool", to modify, query, and maintain
+    databases of images and of transformations between them.
+- Fixed: consolidated redundant "--switch" and "--exchange" parameters to
+    "warp" tool (Issue #3616). Also fixed initial transformation missing
+    inversion bug (unreported) for inverse-consistent nonrigid registration.
+- Fixed: if this is supported, default to terminal width for line width in
+    cmtk::Console::FormatText
+- Added: image/transformation database support for the following registration
+    tools: "registration", "registrationx", "warp", "reformatx"
+- API: cmtk::MetaInformationObject is getting a more explicit and
+    task-appropriate interface.
+- API: refactored multi-channel registration class hierarchy to factor common
+    code out of template class and into new non-template base class
+    cmtk::MultiChannelRegistrationFunctionalBase
+- Added: mat2dof tool can now read from file in addition to reading from
+    std::cin via redirection.
+- API: introduced "cmtk::Units" namespace with classes that handle conversions
+    between units, e.g., between degrees and radians. Also added unit-safe
+    trigonometric functions to MathUtil class.
+- Refactored: numerous code improvements based on suggestions from the third
+    edition of Meyers, S., "Effective C++"
+- Removed: obsolete real-valued mod operators in MathUtil namespace.
+- Removed: long unused support for GIPL image file format import
+- Fix: volume_reconstruction and volume_injection tools now convert affine ITK
+    transformations (i.e., such read from .tfm files) from native into
+    standard space (Issue #4761).
+- API: made all meta key strings C++ objects rather than cpp #defines; also
+    removed CMTK_ prefix after moving them into cmtk namespace.
+- API: renamed "InformationObject" class to more descriptive
+    "MetaInformationObject"
+- Fixed: various issues pointed out by "cppcheck" static code analysis.
+- API: moved morphological operators from cmtk::DataGrid into separate class,
+    cmtk::DataGridMorphologicalOperators.
+- API: prevent copying of system classes where this would lead to problems.
+- Added: filter, levelset, make_initial_affine, mrbias, and reformatx tools
+    now support database updating.
+- Added: database backend for storing images and transformations between their
+    coordinate spaces.
+- Added: "convertx --binarize-thresh" operation
+- Bugfix: shared-library build configuration was broken.
+- Bugfix: "convertx --mask-inverse" was broken.
+- Added: "mk_phantom_3d" tool can now import either an image including
+    existing pixel data or just the grid geometry.
+- Added: "mk_phantom_3d" tool now supports three different coordinate modes:
+    absolute, relative, indexed.
+- Added: "--revert" image operation for "imagemath" tool to revert binary
+    masks.
+- API: moved "DrawXXX" members from "DataGrid" class into a new, dedicated
+    painter class, "UniformVolumePainter."
+- Added: image operation for medial skeleton based on analysis of the Hessian
+    eigensystem. Note that this is currently broken and only kept for future
+    investigation.
+- Added: two differential operator members for "UniformVolume" class, one for
+    gradient and one for Hessian matrix, each implemented using central
+    differences.
+- Added: symmetric eigensystem can now be sorted either by absolute or by
+    actual eigenvalues.
+- Bugfix: UniformDistanceMap constructor failed to copy orientation and
+    space-related information from input UniformVolume object
+- Added: Euclidean distance map computation in "convertx" tool.
+- Added: "warpx" and "congeal_warp" can now do repeated histogram-based
+    intensity matching of floating to reference image, with a transfer
+    function that changes as warping progresses and thus takes into account
+    shifting volume proportions.
+- Added: "convertx" now does histogram equalization. Also added tests.
+- Refactored: created a new class for histogram-based intensity matching,
+    cmtk::HistogramMatchingLookup.
+- Added: first library-level tests for TypedArray class.
+
+
+Release CMTK-1.2.2 (2010-02-25):
+
+- Added: cmtk::SQLite wrapper class for sqlite3 library, with tests.
+- Added: bundled still-unused sqlite3 "library" for future use in
+    image/relationship database.
+- Added: "imagemath" now has "min-value" and "fill" operations.
+- Improved: "imagemath" can now set, unset, and change padding value
+    repeatedly, so different images can be read with different padding values
+    (Issue #4597)
+- Improved: better separation of code for DICOM vs non-DICOM configuration.
+- Improved: code for PGM output (8 and 16 bit) now more consistent and less
+    complex. Also unified API for 8bit  and 16bit write functions.
+- Added: bitwise "and" operation in "imagemath" tool. Added test for this.
+- Testing: added tests for cmtk::TypedArraySimilarity class.
+- Fixed: TypedArraySimilarity::GetPeakSignalToNoiseRatio was broken due to
+    negated GetMeanSquaredDifference return value.
+- Testing: added tests for cmtk::ScalarImageSimilarity class (and, by
+    extension, cmtk::TypedArraySimilarity as well).
+- Removed: obsolete "ImageIO" class was removed; the only two remaining former
+    derived classes, cmtk::PGM and cmtk::DICOM, will now be used directly, as
+    they only have static member functions left.
+- Fixed: initialize memory for Analyze header with zeroes in "mk_analyze_hdr"
+    tool.
+- Testing: added tests for "mk_analyze_hdr" tool.
+- Testing: added tests for "mat2dof" tool.
+- Fixed: "mip" tool did not compute projection images with proper pixel sizes
+    based on the input volume.
+- Testing: added tests for "mip" tool.
+- Improved: "mip" tool now sets black and white points automatically if not
+    provided by the user.
+- Testing: added test for "Rohlfing" single-image intensity-consistent
+    filtering in "filter" tool.
+- Removed: further removal of obsolete PGM and DICOM I/O code.
+
+
+Release CMTK-1.2.1 (2010-02-01):
+
+- Added: "statistics" tool now optionally outputs mask-based results for all
+    up to a user-provided maximum label, even if not all labels in the range
+    actually occur in the mask.
+- Added: "convertx" tool now does thresholding above and below threshold, to
+    threshold and to padding.
+- Added: re-added missing "--fast" switch for warp and warpx tools.
+- Added: "imagemath" can now threshold above and below given values.
+- Added: "convertx" tool can now rescale image intensities to target range
+    using "--scale-to-range" operation.
+
+- Fixed: reading empty (i.e., zero pixels) images crashed the toolkit
+- Fixed: "reformatx" did not respect user-defined padding value when computing
+    Jacobian maps (Issue #4564).
+- Fixed: label mode of "avg_adm" tool was broken.
+- Fixed: "avg_adm" now gives consistent results regardless of number of
+    CPUs. Also fixed minor bug that would have broken this altogether if there
+    were more CPUs than pixels in an image row.
+- Fixed: "avg_adm" tests crashed on MPI; bug also affected non-MPI build
+    (Issue #4571).
+- Fixed: "statistics" now tests whether grid of mask volume matches that of
+    statistics volume.
+
+- Testing: run all warp and warpx tests in "fast" mode
+- Testing: added tests, inputs, and baselines for "avg_adm" tool.
+
+- Removed: deformation strain tensor computation was untested and unused; thus
+    removed.
+- Removed: partial read support for AVW file format removed
+- Removed: support for legacy typedstream studies removed; Nrrd should be able
+    to replace this if needed.
+- Removed: obsolete IO code for DCM tags etc.
+
+
+Release CMTK-1.2.0 (2010-01-06):
+
+- Added: cmtk::Console can now determine terminal line width on POSIX systems,
+    and this is used by cmtk::CommandLine to format command line help output
+    with the correct line breaking.
+- Added: new, experimental implementation of pairwise image registration,
+    with more accurate metric computation and support for arbitrary floating
+    image interpolation. These are accessible through the new "registrationx"
+    command line tool.
+- Added: single-step mass-preserving reformatting in reformatx tool. Also
+    added a new test to cover this.
+- Added: "convertx" tool, which will replace "convert" in the long term but is
+    designed to apply all operations given on the command line in the exact
+    order that they are specified and with arbitrary repetitions. This is in
+    response to Issue #3784.
+
+- Improved: more sophisticated install and packaging configuration; still not
+    fully clear how that translates into separated packages for different
+    components.
+- Improved: ported everything related to Qt to use the actual Qt4 classes, so
+    we can finally get rid of legacy Qt3 support classes. This should reduce
+    the number of actually unused dynamic libraries, which we previously had
+    to link against.
+- Improved: numerous small improvements to triplanar viewer
+- Improved: dcm2image tool now numbers images only if there would otherwise be
+    filename collisions. The printf()-type numbering has been replaced with
+    two new output path substitutions, "%n" and "%N". Both expand to the empty
+    string when a path is already unique without numbering. Otherwise, "%n"
+    substitutes to an increasing number, and "%N" substitutes to the same
+    number with a leading dash, "-". So using "./%n/image%N.nii" generates a
+    single file ".//image.nii" if that is a unique path, or a sequence of
+    images "./1/image-1.nii", "./2/image-2.nii" for up to ten colliding
+    paths. For larger numbers of collisions, the number of digits is
+    automatically increased as necessary.
+- Improved: command line callback error handling was ugly and tedious; now
+    using exceptions to achieve the same effect.
+
+- Changed: in API, all volume "origin" fields were renamed to "offset" to
+    avoid confusion with "origin" of coordinate spaces.
+
+- Fixed: bundled DICOM library finally works on all tested platforms and all
+    tested compilers.
+- Fixed: compile error on latest Mac/Intel gcc due to undefined "ushort"
+    type.
+- Fixed: triplanar can now be called again with no parameters to open empty
+    viewer UI.
+- Fixed: set coordinate space meta information for user-defined target grid in
+    "reformatx" tool.
+- Fixed: using Sun's compiler, there was a problem with the timely
+    initialization of SmartPointer<...>::Null when such an object was used in
+    the global scope. This led to crashing volume_injection and
+    volume_reconstruction tools.
+
+- Removed: support for AMD Core Math Library (ACML), which was rarely used and
+    complicated code unnecessarily
+- Removed: push-forward function of reformatx has long been obsolete because
+    we can invert any transformation and switch reference and floating image,
+    to achieve the same effect.
+- Removed: "Binary" data class; this should really be treated as "Labels"
+    anyway.
+- Removed: for now, we are dropping support for system-installed DCMTK
+    libraries. The configuration of these was a complete hack anyway. For the
+    time being, we will rely exclusively on the bundled, stripped-down version
+    of the toolkit for DICOM support.
+
+- Testing: support for baselines local to each build. If a baseline exists in
+    testing/baseline/${TESTNAME}, then it will be used. Otherwise, the global
+    baseline as configured by the CMTK_DATA_ROOT top-level CMake variable is
+    used.
+- Testing: added tests for manual target grid definition in "reformatx" tool.
+
+
+Release CMTK-1.1.3 (2009-11-18):
+
+- Added: new tool, xform2scalar, to extract scalar measures from deformation
+    fields or transformations. This, in combination with "statistics" and
+    "sequence" tools, obsoletes the old (and inappropriately named)
+    "deformation_field" tool.
+- Added: scripts for multi-NEX motion correction and iterative shape averaging
+    are now configured in build tree and installed in install tree. These (and
+    future scripts) will also be included in installable packages.
+- Added: B-spline transformation can now be written in ITK file format, thus
+    allowing direct import of "warp" transformations into 3D Slicer.
+- Added: new binary builds for Solaris on i386 and x86_64 using SunPro CC
+    compiler.
+
+- Removed: obsolete "deformation_field" tool.
+
+- Fixed: average_images tool was broken.
+- Fixed: numerous unitialized variables and other things that tripped valgrind
+    memory checker.
+- Fixed: some more missing tests were added to the configuration of the
+    bundled D(4)CMTK library.
+- Fixed: cmake file to set up tests when no hash map implementation is found
+    cannot set properties for mcwarp and mcaffine tests.
+- Fixed: numerous compile errors using Sun CC compiler
+- Fixed: incomplete Wiki markup of command line help due to incorrectly
+    overloaded virtual member function
+- Fixed: re-worked CMake build system to eliminate redundant repeated
+    libraries
+- Fixed: re-arranged "warp" command line parameters to avoid crashing Slicer,
+    as it does not allow optional non-option parameters
+- Fixed: signal handler functions are now 'extern "C"' to avoid potential
+    problems of conflicting linkage
+- Fixed: margins for line breaking not correct in Console::FormatText
+
+- Improved: better, more data-drive automatic initialization of optimizer step
+    sizes and image sampling parameters in pairwise rigid and nonrigid
+    registration.
+- Improved: more explicit handling of effective reference and floating volume
+    in pairwise registration classes.
+
+- Testing: added tests and baselines for average_images tool.
+
+
+Release CMTK-1.1.2 (2009-10-28):
+
+- Added: new multi-threading framework based on pools of continuously running
+    threads. This should reduce thread creation overhead and also improve
+    scheduling by allowing load balancing using over-partitioned tasks, i.e.,
+    tasks split into substantially more parts than the number of CPUs.
+- Added: logit and logistic functions for imagemath tool, for single and
+    multiple images.
+- Added: imagemath tool "--match-histograms" operation matches the intensity
+    distribution of one image to that of another.
+- Added: imagemath tool now supports image data padding.
+
+- Fixed: basic reformatting in groupwise registration used slightly broken
+    partitioning for SMP computation. This has been fixed.
+- Fixed: NIFTI reader was not able to read files with detached 348-byte
+    headers, i.e., headers without "extension" field.
+- Fixed: BioRad header problem resulting from struct field alignment (patch by
+    Greg Jefferis).
+- Fixed: TemplateArray::GetRangeTemplate() now ignores non-finite values, which
+    also fixes a crash in triplanar viewer when reading images with non-finite
+    values.
+
+- Improved: switched long and short options in command line help and wiki
+    markup outputs.
+
+
+Release CMTK-1.1.1 (2009-09-02):
+
+- Added: "congeal" and "congeal_warp" now optionally match image histograms to
+    either template data (if template data is used for registration) or first
+    image (if no template is defined or its data is not used).
+- Added: groupwise, pairwise, and multi-channel registration tools now each
+    support "--delta-f-threshold" option to define termination threshold for
+    optimization based on relative target function change.
+
+- Fixed: configuration of type sizes in bundled DICOM library was broken.
+- Fixed: file system functions were borken on Windows (MS-VS build) due to use
+    of Unix-style directory separators ('/' vs. '\').
+
+- Improved: command line options for "congeal" and "congeal_warp" tools
+    streamlined and grouped.
+- Improved: help and wiki outputs of command line tool option descriptions now
+    include textual descriptions of the argument expected by each option,
+    e.g., "float", "string", "image-path".
+
+- Removed: "Mutual Information" variant of RMI-based groupwise registration
+    deleted; this turned out to be almost zero and thus useless. For now,
+    we're left with optimizing the approximated joint entropy.
+
+- Testing: added tests for all registrations using DeltaF threshold.
+
+
+Release CMTK-1.1.0 (2009-08-26):
+
+- API: no longer allow short-only options for command lines.
+- API: cmtk::SmartPointer now supports smart pointers to constant objects for
+    improved const-consistency.
+- API: begin decoupling the actual transformation classes (e.g.,
+    SplineWarpXform) from their reference image grids (used for
+    precomputations). Instead, use classes like the new
+    SplineWarpXformUniformVolume to tie both together, thus allowing more
+    transformation objects to remain const in more situations (see, for
+    example, modified implementation of ReformatVolume::WarpXform).
+- API: all "...NonVirtual" member functions replaced their virtual
+    counterparts and became virtual themselves.
+- API: decoupled VTK and non-VTK landmark code so only one tool,
+    align_landmarks, still needs to be linked against the VTKWrapper and VTK
+    libraries.
+- API: re-worked progress reporting to support multiple-level nested tasks
+- API: removed some residual legacy preprocessor definitions
+
+- Changed: command line tools now need to "opt-in" for XML support. This is to
+    prevent cluttering Slicer's menu with modules that do not actually support
+    it.
+- Changed: finally eliminated all those affine transformation inversions in
+    the rigid registration framework that have been a pain for over ten
+    years. CAUTION! This changes the outcomes of both affine and warp
+    registrations, usually just slightly, but in unstable cases potentially by
+    a lot.
+
+- Fixed: mk_analyze_hdr command line option "--description" was broken.
+- Fixed: contrary to the Wiki, NMI was the default registration criterion used
+    in "film." This has now been changed to MSD, which is most approriate for
+    within-modality registration.
+- Fixed: ReformatVolume::CheckerboardMode was not initialized
+- Fixed: ReformatVolume::CreateInterpoaltor did not support partial volume
+    interpolation.
+- Fixed: ReformatVolume::MakeTargetImage did not create a grid with proper
+    geometry (i.e., offset, direction matrix, meta data).
+- Fixed: conversion of non-axial Analyze images to Nrrd produced output file
+    that was missing coordinate space definition.
+- Fixed: a critical bug that effectively broke all multi-threaded computations
+    on Windows (using MS compilers).
+
+- Added: all tools now support "--echo" command line switch, which dumps the
+    command line to stdout before continuing with the program.
+- Added: the "levelset" and "film" tools now fully support the Slicer3
+    execution model. Support in "mrbias" tool has also been improved.
+- Added: new "asegment" tool for atlas-based segmentation
+- Added: command line class now automatically generates command line syntax
+    description for "--help" output, unless a syntax description string is
+   explicitly set.
+- Added: cmtk::CommandLine class now permits arbitrary-typed variables to be
+    set by command line enum parameter groups.
+- Added: new optional "asegment_sri24" tool for atlas-based segmentation using
+    the SRI24 atlas (currently available only separately from
+    http://nitrc.org/projects/sri24/).
+- Added: "warp" and "registration" tools now support writing of the
+    reformatted floating image without requiring a separate tool, such as
+    refortmatx. This makes integration into Slicer much more convenient.
+- Added: support Slicer3's XML-based progress reporting, and auto-detect
+    Slicer's presence to switch between standard console progress output and
+    XML-based output.
+- Added: automatic Wiki markup printing of command line options
+- Added: export and import of affine transformations in ITK file format for
+    exchange with Slicer.
+- Added: new class, cmtk::TransformationToNativeSpacesAffine, to change an
+    affine transformation under changes of reference and floating image
+    coordinate spaces.
+- Added: intensity adjustment of floating image in affine and B-spline
+    registration using histogram matching
+
+- Removed: multiple redundant command line parameters of the "warp" tool have
+    been retired. We are only retaining options that differ from the default
+    values.
+
+
+Release CMTK-1.0.2 (2009-07-24):
+
+- API: all igsGetSetXXX macros are now cmtkGetSetXXX, and they all define the
+    field name with a "m_" prefix to avoid type/field name collisions.
+- API: more elegant design of noise estimator classes that work on TypedArray
+    objects. Mike's experimental ML noise estimator implementations moved to
+    "Unstable" library.
+- API: new wrapper class "cmtk::HashMapSTL" hides the various STL hash map
+    implementations and also adds support for upcoming standard unordered_map
+    class.
+
+- Added: source tree now incorporates minimal subset of DCMTK files so we can
+    build DICOM support without external dependencies, even on Windows using
+    VisualStudio.
+- Added: "mcaffine" tool now accepts user-provided initial transformation from
+    file [Tracker #3925].
+- Added: cmtk::CommandLine class now automatically prints parameter defaults
+    in "--help" output.
+
+- Fixed: numerous uninitialized data situations identified by valgrind memory
+    checker
+- Fixed: incomplete computation when using "--sampling-density" option of
+    "congeal" tool.
+- Fixed: Slicer can now detect CMTK tools as plugins via their response to
+    "--xml"; note that the XML description itself is not fully correct and
+    functional yet.
+- Fixed: testing and configuration were out of order in top-level
+    CMakeLists.txt, resulting in build problems.
+- Fixed: "film" tool now uses anisotropic Gaussian kernel for volume
+    injection [Tracker #3945].
+- Fixed: volume injection should use reconstructed image pixel size to scale
+    Gaussian kernel, not pass image pixel size. Pass image size depends on
+    number of passes, whereas point spread function does not.
+
+- Improved: eliminated explicit offset calculations in cmtk::DataGrid and use
+    existing index-to-offset function instead.
+- Improved: instead of trying to figure out what STL version provides, or does
+    not provide, a 64bit integer hash function specialization, we simply provide a
+    generic hash function ourselves, which works on all platforms.
+
+- Testing: added an experimental build with valgrind/memcheck memory checking
+    to discover further issues with uninitialized data etc.
+- Testing: support for automated memory testing using valgrind etc.
+- Testing: added test for multi-channel affine registration using histograms
+- Testing: added actual multi-channel registration test, and test for mcwarp
+- Testing: added test for importing deflate-compress DICOM images
+
+
+Release CMTK-1.0.1 (2009-06-25):
+
+- API: changed XformList::Apply to XformList::ApplyInPlace
+
+- Build: added missing applications "regress" and "probe_xform" to default
+    build again.
+
+- Changed: probe_xform tool now uses different command line semantics. All
+    transformations are concatenated rather than applied separately.
+
+- Added: normal vector of InfinitePlane can now be set directly.
+- Added: "sympl" tool can now use different approximated symmetry plane
+    orientations to begin search, supporting non-sagittal symmetry planes
+    [Tracker #3834].
+- Added: established infrastructure for optional algorithm validation,
+    beginning with rigid registration. All validation tools must be activated
+    via the "BUILD_VALIDATION" option of the top-level CMakeLists.txt file
+- Added: tools for rigid registration validation using data from the
+    Retrospective Image Registration Evaluation project.
+- Added: "registration" tool now supports on-the-fly Sobel edge filtering, and
+    histogram equalization was unified with "warp" tool's.
+
+- Fixed: cmtkVoxelMatchingAffineFunctional.h compile error when SMP is turned
+    off.
+- Fixed: crash of average_affine tool when run with no parameters
+    [Tracker #3841]
+
+- Improved: AffineRegistration and ElasticRegistration now use a new, unified
+    image preprocessing class for things like cropping, histogram
+    equalization, etc.
+
+- Removed: obsolete cmtk::Array class; replace all uses with std::vector
+
+
+Release CMTK-1.0.0 (2009-06-16):
+
+- API: "TemplateHistogram", "LogTemplateHistogram", and "TemplateHistogram2D"
+    renamed to remove "Template" part. Also removed all global histogram
+    typedefs (e.g., "UnsignedIntHistogram") to be more flexible with
+    conditional instantiations
+- API: "Histogram2D" renamed to "JointHistogram".
+- API: all "VM_" class prefixes replaced with more explicit "VoxelMatching"
+
+- Documentation: added extensive documentation with code examples for several
+    key classes.
+
+- SVN: moved test data out of "core" tree and into "data"; allow configuration
+    of separate (shared) data tree from top-level CMake file
+
+- Added: MiniXML library included in source tree for all upcoming XML needs.
+- Added: initial support for XML command line parameter descriptions. Mostly
+    infrastructure work to make sure XML can be generated by CommandLine
+    class with minimal extra programmer involvement
+- Added: cmtk::Console can now typeset text with given margin and width.
+- Added: Windows implementation of mutex lock.
+- Added: cmtk::StdOut stream
+- Added: "--auto-multi-levels" option for registration tool. Selects automatic
+    resolution and optimization parameters for given number of levels.
+- Added: new top-level configuration option to switch all numerical algorithms
+    (i.e., AlgLib) to single-precision floats. This can be used to save memory
+    in extreme situations (for example, high-resolution volume reconstruction)
+- Added: two new operations for imagemath tool: xor-scalar and contract-labels
+- Added: Windows implementation of dcm2image file scanning
+
+- Changed: CMake switches for changing coordinate and data real type are now
+    advanced.
+
+- Fixed: numerical instability of correlation coefficient (leading to values
+    outside -1..+1, which in turn produced invalid p-values
+- Fixed: legacy IGS_MOUNTPOINTS was not considered
+- Fixed: principal axes registration was broken [Tracker #3743]
+- Fixed: configure problem with bundled zlib, which broke compile of NrrdIO in
+    Visual Studio.
+- Fixed: Analyze/Nifti images were not written compressed
+- Fixed: numerous compiler errors and warnings detected by GCC 4.4
+
+- Improved: simplified code by removing HAVE_ZLIB conditionals. These are now
+    always true since we're bundling zlib.
+- Improved: use double instead of float for linear model and regression
+- Improved: use CMake's FindOpenMP to detect and configure OpenMP
+- Improved: prevent configurations where CMTK_USE_PTHREADS is ON but
+    CMTK_BUILD_SMP is OFF.
+- Improved: better integration of Doxygen into CMake build system
+- Improved: better output of stacked image information in dcm2image
+- Improved: pre-defined "--xml" and "--help" command line options can now be
+    overridden by library user [Tracker #3830].
+
+- Removed: cmtk::MathUtil::CoefficientOfCorrelation was removed because it
+    turned out to be a redundant, numerically unstable variant of
+    MathUtil::Correlation
+- Removed: deprecated options -m/--metric removed from registration and warp
+    tools.
+- Removed: obsolete tool skeleton "detect_interleave"
+- Removed: obsolete "--threads" option from all remaining command lines; using
+    CMTK_NUM_THREADS environment variable is more flexible and versatile.

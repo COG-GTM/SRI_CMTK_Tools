@@ -1,0 +1,2925 @@
+#!/bin/bash
+
+##
+##  Copyright 2004-2014 SRI International
+##
+##  Copyright 1997-2011 Torsten Rohlfing
+##
+##  This file is part of the Computational Morphometry Toolkit.
+##
+##  http://www.nitrc.org/projects/cmtk/
+##
+##  The Computational Morphometry Toolkit is free software: you can
+##  redistribute it and/or modify it under the terms of the GNU General Public
+##  License as published by the Free Software Foundation, either version 3 of
+##  the License, or (at your option) any later version.
+##
+##  The Computational Morphometry Toolkit is distributed in the hope that it
+##  will be useful, but WITHOUT ANY WARRANTY; without even the implied
+##  warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##  GNU General Public License for more details.
+##
+##  You should have received a copy of the GNU General Public License along
+##  with the Computational Morphometry Toolkit.  If not, see
+##  <http://www.gnu.org/licenses/>.
+##
+##  $Revision$
+##
+##  $LastChangedDate$
+##
+##  $LastChangedBy$
+##
+
+RUNTEST=$1
+CONFIG=$2
+VALGRIND=$3
+
+BUILDNAME=@BUILDNAME@
+DATADIR=@CMTK_DATA_ROOT@/testing/inputs
+
+BINDIR=@EXECUTABLE_OUTPUT_PATH@/${CONFIG}
+if [ ! -d ${BINDIR}/. ]; then
+    BINDIR=@EXECUTABLE_OUTPUT_PATH@
+fi
+
+BASELINE_DEFAULT=@CMTK_DATA_ROOT@/testing/baseline/${RUNTEST}
+BASELINE=${BINDIR}/../testing/baseline/${RUNTEST}
+if [ ! -d ${BASELINE} ]; then
+    BASELINE=${BASELINE_DEFAULT}
+fi
+
+HOSTNAME=`uname -n`
+
+NUMDIFF=@NUMDIFF_EXECUTABLE@
+
+tmpdir=${BINDIR}/../testing/temporary/${HOSTNAME}/${RUNTEST}
+if [ -e ${tmpdir} ]; then
+    rm -rf ${tmpdir}
+fi
+mkdir -p ${tmpdir}
+
+sqlite=${BINDIR}/sqlite
+if [ ! -f ${sqlite} ]; then
+    sqlite=sqlite3
+fi
+
+sed=/opt/local/bin/gsed
+if [ ! -f ${sed} ]; then
+    sed=sed
+fi
+
+cd ${DATADIR}
+
+run()
+{
+    cmd=$*
+
+    echo "pushd $PWD; ${BINDIR}/$cmd; popd" 1>&2
+    if ${VALGRIND} ${BINDIR}/$cmd; then
+	return
+    else
+	exit 1
+    fi
+}
+
+run_expect_fail()
+{
+    cmd=$*
+
+    echo "pushd $PWD; ${BINDIR}/$cmd; popd"
+    if ${BINDIR}/$cmd; then
+	exit 1
+    else
+	return
+    fi
+}
+
+run_eval()
+{
+    cmd=$*
+
+    echo "pushd $PWD; $cmd; popd"
+    if eval "${VALGRIND} $cmd"; then
+	return
+    else
+	exit 1
+    fi
+}
+
+run_eval_expect_fail()
+{
+    cmd=$*
+
+    echo "pushd $PWD; $cmd; popd"
+    if eval "${VALGRIND} $cmd"; then
+	exit 1
+    else
+	return
+    fi
+}
+
+get_unzipped()
+{
+    if test -f ${1}.gz; then
+	if [ "`uname`" = "Darwin" ]; then
+	    local tmp=`mktemp /tmp/temp.XXXX`
+	else
+	    local tmp=`mktemp`
+	fi
+	gzip -cd ${1}.gz > ${tmp}
+	echo ${tmp}
+    else
+	echo ${1}
+    fi
+}
+
+remove_if_tempfile()
+{
+    for f in $*; do
+	local dir=`dirname $f`
+	if [ "${dir}" == "/tmp" ]; then
+	    rm $f
+	fi 
+    done
+}
+
+check_result()
+{
+    baseline=`get_unzipped ${BASELINE}/$1`
+    result=`get_unzipped ${tmpdir}/$1`
+
+    if test ! -f ${result}; then
+	echo "Results file ${result} does not exist"
+	remove_if_tempfile ${baseline} ${result}
+	exit 1
+    fi
+
+    if test ! -f ${baseline}; then
+	echo "Baseline file ${baseline} does not exist"
+	remove_if_tempfile ${baseline} ${result}
+	exit 1
+    fi
+
+    local diff="cmp"
+    if file ${result} | fgrep text; then
+##	diff="diff --strip-trailing-cr"
+	diff="${NUMDIFF} --relative-tolerance=1e-5 --absolute-tolerance=5e-7"
+    fi
+
+    echo "${diff} ${tmpdir}/$1 ${BASELINE}/$1"
+
+    if ${diff} $result $baseline; then
+	remove_if_tempfile ${baseline} ${result}
+	return
+    else
+	remove_if_tempfile ${baseline} ${result}
+	exit 1
+    fi
+}
+
+check_results()
+{
+    for r in $*; do
+	check_result $r
+    done
+}
+
+check_image()
+{
+    baseline=${BASELINE}/$1
+    result=${tmpdir}/$1
+    
+    abs_threshold=1e-5 ## if this is made much smaller, need to adjust "scale=" on next line:
+
+    # see if maximum relative difference between images exceeds 1e-6
+    difference=`${BINDIR}/similarity $baseline $result | fgrep SIMval | cut -f3`
+    compare=`echo "SCALE; $difference > $abs_threshold" | sed 's/e/*10^/g;s/SCALE/scale=10/' | bc`
+
+    echo difference=$difference compare=$compare
+
+    if [ "${compare}" = "0" ]; then
+	return
+    else
+	echo "Absolute image difference $difference exceeds threshold $abs_threshold"
+    fi
+
+    rel_threshold=1e-5 ## if this is made much smaller, need to adjust "scale=" on next line:
+
+    difference=`${BINDIR}/similarity $baseline $result | fgrep SIMval | cut -f4`
+    compare=`echo "SCALE; $difference > $rel_threshold" | sed 's/e/*10^/g;s/SCALE/scale=10/' | bc`
+
+    echo difference=$difference compare=$compare
+
+    if [ "${compare}" = "0" ]; then
+	return
+    else
+	echo "Relative image difference $difference exceeds threshold $rel_threshold"
+	exit 1
+    fi
+}
+
+check_images()
+{
+    for r in $*; do
+	check_image $r
+    done
+}
+
+case ${RUNTEST} in
+    average_imagesMean)
+	run average_images -o ${tmpdir}/average.hdr spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results average.img
+	;;
+    average_imagesMeanNormPadd)
+	run average_images -o ${tmpdir}/average.hdr --set-padding-value 0 --normalize-mean-stdev spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results average.img
+	;;
+    average_imagesMeanAbsLog)
+	run average_images --set-padding-value 0 -o ${tmpdir}/average.hdr --abs --log spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results average.img
+	;;
+    average_imagesVariance)
+	run average_images -o ${tmpdir}/variance.hdr --var spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results variance.img
+	;;
+    average_imagesStDev)
+	run average_images -o ${tmpdir}/stdev.hdr --stdev spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results stdev.img
+	;;
+    average_imagesEntropy)
+	run average_images -o ${tmpdir}/entropy.hdr --entropy spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results entropy.img
+	;;
+    average_imagesZScore)
+	run average_images -o ${tmpdir}/zscore.hdr --zscore spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results zscore.img
+	;;
+    avg_admDefault2)
+        run avg_adm --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp spgr_brain_12_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admDefault3)
+        run avg_adm --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admJacobianFloat)
+        run avg_adm --jacobian --float --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admLabels)
+        run avg_adm --nn --label --replace-from spgr_brain_ --replace-to parc --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admPaddOutZeroNN)
+        run avg_adm --nn --pad-out 0 --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admNoReferenceModelCubic)
+        run avg_adm --byte --cubic --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp --no-ref-model spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admNoScaleModelAutoScale)
+        run avg_adm --byte --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp --no-scale-model --auto-scale spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    avg_admWithAffineNoRefData)
+        run avg_adm --byte --output ${tmpdir}/avg.hdr --output-warp ${tmpdir}/avg.warp --no-ref-data --with-affine spgr_brain_12_warp.list spgr_brain_13_warp.list
+	check_results avg.img avg.warp
+	;;
+    concat_affineABA)
+	run concat_affine -o ${tmpdir}/concat.xform affineA.xform affineB.xform affineA.xform
+	check_results concat.xform
+	;;
+    concat_affineABAInvert)
+	run concat_affine --invert-output -o ${tmpdir}/concat.xform affineA.xform affineB.xform affineA.xform
+	check_results concat.xform
+	;;
+    concat_affineAB1A)
+	run concat_affine -o ${tmpdir}/concat.xform affineA.xform --inverse affineB.xform affineA.xform
+	check_results concat.xform
+	;;
+    concat_affineAA1)
+	run concat_affine -o ${tmpdir}/concat.xform affineA.xform --inverse affineA.xform
+	check_results concat.xform
+	;;
+    concat_affineA1A)
+	run concat_affine -o ${tmpdir}/concat.xform -- --inverse affineA.xform affineA.xform
+	check_results concat.xform
+	;;
+    convert_warpFractional)
+	run convert_warp --fractional 0.5 vol001_mr_t0t1_warp.xform ${tmpdir}/fractional.xform
+	check_results fractional.xform
+	;;
+    convert_warpDeformation)
+	run convert_warp --deformation-only vol001_mr_t0t1_warp.xform ${tmpdir}/deformation.xform
+	check_results deformation.xform
+	;;
+    convertxType)
+        run convertx --byte --char --float --double --int --uint --short --ushort spgr_brain_1.hdr ${tmpdir}/convert.nii
+	check_results convert.nii
+	;;
+    convertxLabels)
+        run convertx --labels binary_mask.nii ${tmpdir}/convert.nii
+	check_results convert.nii
+	;;
+    convertxBinarize)
+        run convertx --binarize-thresh 100 spgr_brain_1.hdr ${tmpdir}/thresh.hdr
+	check_results thresh.img
+	;;
+    convertxBinarizeOtsu)
+        run convertx --otsu-thresh --byte phantom_ax.nii ${tmpdir}/binary.nii
+	check_results binary.nii
+	;;
+    convertxBinarizeOtsuNBins)
+        run convertx --otsu-thresh-nbins 128 --byte phantom_ax.nii ${tmpdir}/binary.nii
+	check_results binary.nii
+	;;
+    convertxPruneHighLow)
+        run convertx --prune-histogram 16 pat001_pet.hdr ${tmpdir}/prune.nii
+	check_results prune.nii
+	;;
+    convertxPruneHigh)
+        run convertx --prune-histogram-high 16 pat001_pet.hdr ${tmpdir}/prune.nii
+	check_results prune.nii
+	;;
+    convertxPruneLow)
+        run convertx --prune-histogram-low 16 pat001_pet.hdr ${tmpdir}/prune.nii
+	check_results prune.nii
+	;;
+    convertxBoundaryMap)
+	run convertx --boundary-map parc1.hdr ${tmpdir}/boundary_map.hdr
+	check_results boundary_map.img
+	;;
+    convertxConnectedComponents)
+        run convertx --connected-components binary_mask.nii ${tmpdir}/connected.hdr
+	check_results connected.img
+	;;
+    convertxDistanceUnsigned)
+        run convertx --distance-map parc1_bin.hdr ${tmpdir}/dmap.hdr
+	check_results dmap.img
+	;;
+    convertxLaplace)
+        run convertx --float --laplace-filter spgr_brain_1.hdr ${tmpdir}/laplace.hdr
+	check_results laplace.img
+	;;
+    convertxMapValues)
+        run convertx --map-values 82,86:254 --map-values 16:255 --set-padding 128 --map-values 0 parc3.hdr ${tmpdir}/mapped.hdr
+	check_results mapped.img
+        ;;
+    convertxMapValues2)
+        run convertx --set-padding 128 --map-values 82,86:254+16:255+0 parc3.hdr ${tmpdir}/mapped.hdr
+	check_results mapped.img
+        ;;
+    convertxMapValues3)
+        run convertx --set-padding 128 --map-values 16:255+82,86:254+0 parc3.hdr ${tmpdir}/mapped.hdr
+	check_results mapped.img
+        ;;
+    convertxMapValuesOnly)
+        run convertx  --set-padding 255 --map-values-only 82,86:1 parc3.hdr ${tmpdir}/mapped.hdr
+	check_results mapped.img
+        ;;
+    convertxMapValuesOnly2)
+        run convertx  --set-padding 255 --map-values-only 82:1+86:1 parc3.hdr ${tmpdir}/mapped.hdr
+	check_results mapped.img
+        ;;
+    convertxRevert)
+        run convertx --revert parc1_bin.hdr ${tmpdir}/revert.hdr
+	check_results revert.img
+        run convertx --revert parc1.hdr ${tmpdir}/revert.hdr
+	check_results revert.img
+	;;
+    convertxDistanceSigned)
+        run convertx --signed-distance-map parc1_bin.hdr ${tmpdir}/dmap.hdr
+	check_results dmap.img
+	;;
+    convertxDistanceSigned2)
+        run convertx --signed-distance-map parc1.hdr ${tmpdir}/dmap.hdr
+	check_results dmap.img
+	;;
+    convertxBoundaryMapMultiValue)
+	run convertx --multi-boundary-map parc1.hdr ${tmpdir}/boundary_map_multi.hdr
+	check_results boundary_map_multi.img
+	;;
+    convertxCropThresholdWriteRegion)
+        run_eval "${BINDIR}/convertx --crop-by-threshold-write-region 1 spgr_brain_1.hdr ${tmpdir}/cropped.nii > ${tmpdir}/crop.txt"
+	check_results cropped.nii crop.txt
+	;;
+    convertxCropRegion1)
+        run_eval "${BINDIR}/convertx --crop-by-index 2,2,2,12,12,12 spgr_brain_1.hdr ${tmpdir}/cropped.nii"
+	check_results cropped.nii
+	;;
+    convertxCropRegion2)
+        run_eval "${BINDIR}/convertx --crop-by-index 10,10,10,-10,-10,-10 spgr_brain_1.hdr ${tmpdir}/cropped.nii"
+	check_results cropped.nii
+	;;
+    convertxResample)
+	run convertx --resample 1.0 phantom_ax.nii ${tmpdir}/resample.nii
+	check_results resample.nii
+	;;
+    convertxResampleExactLabels)
+	run convertx --resample-exact 10 lvote_atlas_l0.nii ${tmpdir}/resample.nii
+	check_results resample.nii
+	;;
+    convertxDownsample)
+	run convertx --downsample-average 8,4,1 phantom_ax.hdr ${tmpdir}/downsample.hdr
+	check_results downsample.hdr downsample.img
+	;;
+    convertxDownsampleNiftiSform)
+	run convertx --downsample-average 8,4,1 phantom_ax_sform.nii ${tmpdir}/downsample_ax.nii
+	run convertx --downsample-average 1,8,4 phantom_sa_sform.nii ${tmpdir}/downsample_sa.nii
+	run convertx --downsample-average 4,1,8 phantom_co_sform.nii ${tmpdir}/downsample_co.nii
+	check_results downsample_ax.nii downsample_sa.nii downsample_co.nii
+	;;
+    convertxDownsampleNiftiQform)
+	run convertx --downsample-average 8,4,1 phantom_ax_qform.nii ${tmpdir}/downsample_ax.nii
+	run convertx --downsample-average 1,8,4 phantom_sa_qform.nii ${tmpdir}/downsample_sa.nii
+	run convertx --downsample-average 4,1,8 phantom_co_qform.nii ${tmpdir}/downsample_co.nii
+	check_results downsample_ax.nii downsample_sa.nii downsample_co.nii
+	;;
+    convertxDownsampleNiftiQformSform)
+	run convertx --downsample-average 8,4,1 phantom_ax_qform_sform.nii ${tmpdir}/downsample_ax.nii
+	run convertx --downsample-average 1,8,4 phantom_sa_qform_sform.nii ${tmpdir}/downsample_sa.nii
+	run convertx --downsample-average 4,1,8 phantom_co_qform_sform.nii ${tmpdir}/downsample_co.nii
+	check_results downsample_ax.nii downsample_sa.nii downsample_co.nii
+	;;
+    convertxDownsampleNrrd)
+	run convertx --downsample-average 8,4,1 phantom_ax.nhdr ${tmpdir}/downsample.nhdr
+	check_results downsample.nhdr downsample.raw
+	;;
+    convertxDownsampleSelect)
+	run convertx --downsample-select 8,4,1 phantom_ax.hdr ${tmpdir}/downsample.hdr
+	check_results downsample.hdr downsample.img
+	;;
+    convertxDownsampleSelectNrrd)
+	run convertx --downsample-select 8,4,1 phantom_ax.nhdr ${tmpdir}/downsample.nhdr
+	check_results downsample.nhdr downsample.raw
+	;;
+    convertxFlipX)
+        run convertx --flip-x parc1_bin.hdr ${tmpdir}/flip.hdr
+	check_results flip.img
+	;;
+    convertxFlipYZ)
+        run convertx --flip-y --flip-z parc1_bin.hdr ${tmpdir}/flip.hdr
+	check_results flip.img
+	;;
+    convertxErodeDilateErode)
+	run convertx --erode 1 --dilate 2 --erode 1 parc1_bin.hdr ${tmpdir}/parc1_ede.img
+	check_results parc1_ede.img
+	;;
+    convertxDilateErodeDilate)
+	run convertx --dilate 1 --erode 2 --dilate 1 parc1_bin.hdr ${tmpdir}/parc1_ded.img
+	check_results parc1_ded.img
+	;;
+    convertxErodeByDistance)
+	run convertx --erode-distance 10 parc1_bin.hdr ${tmpdir}/parc1_erode.nii
+	check_results parc1_erode.nii
+	;;
+    convertxErodeByDistanceMultiLabel)
+	run convertx --erode-distance-multilabel 10 lvote_atlas_l0.nii ${tmpdir}/erode.nii
+	check_results erode.nii
+	;;
+    convertxDilateByDistance)
+	run convertx --dilate-distance 10 parc1_bin.hdr ${tmpdir}/parc1_dilate.nii
+	check_results parc1_dilate.nii
+	;;
+    convertxGaussianFilterSigma)
+	run convertx --gaussian-filter-sigma 5.0 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxGaussianFilterFWHM)
+        run convertx --gaussian-filter-fwhm 10.0 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxHistogramEqualization)
+        run convertx --histogram-equalization spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxHistogramEqualizationNBins)
+        run convertx --histogram-equalization-nbins 32 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxMatchMeanSDev)
+        run convertx --match-mean-sdev spgr_brain_2.hdr spgr_brain_1.hdr ${tmpdir}/match.nii
+        check_results match.nii
+        ;;
+    convertxMatchHistograms)
+        run convertx --match-histograms spgr_brain_2.hdr spgr_brain_1.hdr ${tmpdir}/match.nii
+        check_results match.nii
+        ;;
+    convertxMask)
+	run convertx --mask spgr_3t_mask.hdr spgr_3t.hdr ${tmpdir}/masked.hdr
+	check_results masked.img
+	;;
+    convertxMaskInverse)
+	run convertx --mask-inverse spgr_3t_mask.hdr spgr_3t.hdr ${tmpdir}/masked.hdr
+	check_results masked.img
+	;;
+    convertxMedianFilter1)
+	run convertx --median-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxMedianFilter2)
+	run convertx --median-filter 2 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxMedianFilterXYZ)
+	run convertx --median-filter 2,2,1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxMeanFilter)
+	run convertx --float --mean-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastMean0Filter)
+	run convertx --float --fast-mean-filter 0 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastMean1Filter)
+	run convertx --float --fast-mean-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastMean2Filter)
+	run convertx --float --fast-mean-filter 2 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastMean2PadFilter)
+	run convertx --set-padding 0 --float --fast-mean-filter 2 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxVarianceFilter)
+	run convertx --float --variance-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastVariance0Filter)
+	run convertx --float --fast-variance-filter 0 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastVariance1Filter)
+	run convertx --float --fast-variance-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastVariance2Filter)
+	run convertx --float --fast-variance-filter 2 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxFastVariance2PadFilter)
+	run convertx --set-padding 0 --float --fast-variance-filter 2 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxThirdMomentFilter)
+	run convertx --float --third-moment-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxStandardDeviationFilter)
+	run convertx --float --standard-deviation-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxSmoothnessFilter)
+	run convertx --float --smoothness-filter 1 spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.img
+	;;
+    convertxNiftiToAnalyze)
+	run convertx spgr_brain_1.nii ${tmpdir}/spgr_brain_1.hdr
+	check_results spgr_brain_1.hdr spgr_brain_1.img
+	;;
+    convertxNiftiToMetaImage)
+	run convertx spgr_brain_1.nii ${tmpdir}/spgr_brain_1.mha
+	check_results spgr_brain_1.mha
+	;;
+    convertxAnalyzeToNifti)
+	run convertx spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.nii
+	check_results spgr_brain_1.nii
+	;;
+    convertxAnalyzeToNiftiRAS)
+        export CMTK_LEGACY_WRITE_IMAGES_RAS=1
+	run convertx spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.nii
+	unset CMTK_LEGACY_WRITE_IMAGES_RAS
+	check_results spgr_brain_1.nii	
+	;;
+    convertxNiftiDetachedToNifti)
+	run convertx spgr_brain_nifti.hdr ${tmpdir}/spgr_brain_1.nii
+	check_results spgr_brain_1.nii
+	;;
+    convertxAnalyzeToNiftiDetached)
+	run convertx spgr_brain_1.hdr ${tmpdir}/spgr_brain_1.img
+	check_results spgr_brain_1.hdr spgr_brain_1.img
+	;;
+    convertxUncompressedNIFTI1)
+        export CMTK_WRITE_UNCOMPRESSED=1
+        run convertx parc1_bin.hdr ${tmpdir}/out.nii
+	unset CMTK_WRITE_UNCOMPRESSED
+	if [ ! -e ${tmpdir}/out.nii ]; then exit 1; fi
+	;;
+    convertxUncompressedNIFTI2)
+        export CMTK_WRITE_UNCOMPRESSED=1
+        run convertx parc1_bin.hdr ${tmpdir}/out.nii.gz
+	unset CMTK_WRITE_UNCOMPRESSED
+	if [ ! -e ${tmpdir}/out.nii.gz ]; then exit 1; fi
+	;;
+    convertxUncompressedNIFTI3)
+        unset CMTK_WRITE_UNCOMPRESSED
+        run convertx parc1_bin.hdr ${tmpdir}/out.nii
+	if [ ! -e ${tmpdir}/out.nii.gz ]; then exit 1; fi
+	;;
+    convertxUncompressedNIFTI4)
+        unset CMTK_WRITE_UNCOMPRESSED
+        run convertx parc1_bin.hdr ${tmpdir}/out.nii.gz
+	if [ ! -e ${tmpdir}/out.nii.gz ]; then exit 1; fi
+	;;
+    convertxThresholdBelow)
+	run convertx --set-padding 0 --thresh-below 100 spgr_brain_1.hdr ${tmpdir}/thresh.hdr
+	check_results thresh.img
+	;;
+    convertxThresholdAbove)
+        run convertx --set-padding 0 --thresh-above 100 spgr_brain_1.hdr ${tmpdir}/thresh.hdr
+	check_results thresh.img
+	;;
+    convertxThresholdBelowToPadding)
+	run convertx --set-padding 0 --thresh-below-to-padding 100 spgr_brain_1.hdr ${tmpdir}/thresh.hdr
+	check_results thresh.img
+	;;
+    convertxThresholdAboveToPadding)
+        run convertx --set-padding 0 --thresh-above-to-padding 100 spgr_brain_1.hdr ${tmpdir}/thresh.hdr
+	check_results thresh.img
+	;;
+    convertxScaleToRange)
+	run convertx --scale-to-range 128:192 spgr_brain_1.hdr ${tmpdir}/scaled.hdr
+	check_results scaled.img
+	;;
+    convertxReplacePadding)
+	run convertx --byte --set-padding 0 --replace-padding 255 spgr_brain_1.hdr ${tmpdir}/replaced.hdr
+	check_results replaced.img
+        ;;
+    convertxReplaceInfNaN)
+	run convertx --replace-inf-nan 255 infinite.nii ${tmpdir}/replaced.hdr
+	check_results replaced.img
+        ;;
+    dbtool_AddImages)
+      run dbtool add_images ${tmpdir}/db.sqlite image1 image2
+      ${sqlite} ${tmpdir}/db.sqlite "SELECT * FROM images ORDER BY path ASC" > ${tmpdir}/images
+      check_results images
+      ;;
+    dbtool_AddImages2)
+      run dbtool add_images ${tmpdir}/db.sqlite image1 image2 image3 image3
+      ${sqlite} ${tmpdir}/db.sqlite "SELECT * FROM images ORDER BY path ASC" > ${tmpdir}/images
+      check_results images
+      ;;
+    dbtool_ListSpace)
+      run_eval "${BINDIR}/dbtool list_space images.sqlite image1c > ${tmpdir}/list.txt"
+      check_results list.txt
+      ;;
+    dbtool_GetXform1)
+      run_eval "${BINDIR}/dbtool get_xform imagesSingleXform.sqlite image1.nii image2.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dbtool_GetXform2)
+      run_eval "${BINDIR}/dbtool get_xform imagesSingleXform.sqlite image2.nii image1.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dbtool_GetXform3)
+      run_eval "${BINDIR}/dbtool get_xform imagesMultiXforms.sqlite image1.nii image2.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dbtool_GetXform4)
+      run_eval "${BINDIR}/dbtool get_xform imagesMultiXforms.sqlite image2.nii image1.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dbtool_GetXform5)
+      run_eval "${BINDIR}/dbtool get_xform --all imagesMultiXforms.sqlite image1.nii image2.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dbtool_GetXform6)
+      run_eval "${BINDIR}/dbtool get_xform --all imagesMultiXforms.sqlite image2.nii image1.nii > ${tmpdir}/xform.txt"
+      check_results xform.txt
+      ;;
+    dcm2image)
+	run dcm2image -O ${tmpdir}/00%n.hdr dcm/
+	check_results 001.hdr 001.img 002.hdr 002.img 003.hdr 003.img
+	;;
+    dcm2imageSubs)
+        run dcm2image -O ${tmpdir}/%D_%R_%E%N.nii dcm/
+	check_results 3-plane-localizer_5.104_1.52-1.nii 3-plane-localizer_5.104_1.52-2.nii 3-plane-localizer_5.104_1.52-3.nii
+	;;
+    dcm2imageZ)
+	run dcm2image -O ${tmpdir}/00%n.nii dcmz/
+	check_results 001.nii 002.nii 003.nii
+	;;
+    dcm2imageNrrd)
+	run dcm2image -O ${tmpdir}/00%n.nhdr dcm/
+	check_results 001.nhdr 001.raw 002.nhdr 002.raw 003.nhdr 003.raw
+	;;
+    dcm2imageEmbedPatientNameAnalyze)
+	run dcm2image --embed PatientName -O ${tmpdir}/00%n.hdr dcm/
+	check_results 001.hdr 002.hdr 003.hdr
+	;;
+    dcm2imageEmbedPatientNameNifti)
+	run dcm2image --embed PatientName -O ${tmpdir}/00%n.nii dcm/
+	check_results 001.nii 002.nii 003.nii
+	;;
+    dcm2imageEmbedSeriesDescriptionNifti)
+	run dcm2image --embed SeriesDescription -O ${tmpdir}/00%n.nii dcm/
+	check_results 001.nii 002.nii 003.nii
+	;;
+    dcm2imageEmbedStudyIDDateNifti)
+        run dcm2image --embed StudyID_StudyDate -O ${tmpdir}/00%n.nii dcm/
+	check_results 001.nii
+	;;
+    dcm2imageEmbedPatientNameNrrd)
+	run dcm2image --embed PatientName -O ${tmpdir}/00%n.nhdr dcm/
+	check_results 001.nhdr 002.nhdr 003.nhdr
+	;;
+    dcm2imageMosaic)
+	run dcm2image -x --include-identifiers -O ${tmpdir}/00.nii mr-mosaic/
+	check_results 00.nii 00.nii.xml
+	;;
+    dcm2imageMosaicPACS)
+	run dcm2image -x --include-identifiers -O ${tmpdir}/00.nii mr-mosaic-pacs/
+	check_results 00.nii 00.nii.xml
+	;;
+    dcm2imageDiffusionGEXML)
+        run dcm2image -x --tolerance 1e-4 --include-identifiers -O ${tmpdir}/%n.nii mr-dwi-ge/
+	check_results 1.nii 1.nii.xml 2.nii 2.nii.xml
+	;;
+    dcm2imageDiffusionSiemensXML)
+        run dcm2image -x --include-identifiers -O ${tmpdir}/%n.nii mr-dwi-siemens/
+	check_results 1.nii 1.nii.xml 2.nii 2.nii.xml 3.nii 3.nii.xml 4.nii 4.nii.xml
+	;;
+    dcm2imageMosaicAnon)
+	run dcm2image -x -O ${tmpdir}/00.nii mr-mosaic/
+	check_results 00.nii 00.nii.xml
+	;;
+    dcm2imageMosaicPACSAnon)
+	run dcm2image -x -O ${tmpdir}/00.nii mr-mosaic-pacs/
+	check_results 00.nii 00.nii.xml
+	;;
+    dcm2imageDiffusionGEXMLAnon)
+        run dcm2image -x --tolerance 1e-4 -O ${tmpdir}/%n.nii mr-dwi-ge/
+	check_results 1.nii 1.nii.xml 2.nii 2.nii.xml
+	;;
+    dcm2imageDiffusionSiemensXMLAnon)
+        run dcm2image -x -O ${tmpdir}/%n.nii mr-dwi-siemens/
+	check_results 1.nii 1.nii.xml 2.nii 2.nii.xml 3.nii 3.nii.xml 4.nii 4.nii.xml
+	;;
+    dcm2imageExclude)
+        run dcm2image --exclude ImageOrientationPatient=1\\-0\\0\\-0\\1\\0 -O ${tmpdir}/image%n.nii dcm/
+	check_results image1.nii image2.nii
+	;;
+    dcm2imageInclude)
+        run dcm2image --filter ImageOrientationPatient=1\\-0\\0\\-0\\1\\0 -O ${tmpdir}/image%n.nii dcm/
+	check_results image.nii
+	;;
+    dcm2imageSubsDirName)
+        run dcm2image -x --tolerance 1e-4 --include-identifiers -O ${tmpdir}/%1/%0.nii mr-dwi-ge/ mr-dwi-siemens/
+	check_results mr-dwi-ge/I0150.dcm.nii mr-dwi-ge/I0150.dcm.nii.xml mr-dwi-ge/I0280.dcm.nii mr-dwi-ge/I0280.dcm.nii.xml
+	check_results mr-dwi-siemens/I0001.dcm.nii mr-dwi-siemens/I0001.dcm.nii.xml mr-dwi-siemens/I0002.dcm.nii mr-dwi-siemens/I0002.dcm.nii.xml 
+	check_results mr-dwi-siemens/I0003.dcm.nii mr-dwi-siemens/I0003.dcm.nii.xml mr-dwi-siemens/I0004.dcm.nii mr-dwi-siemens/I0004.dcm.nii.xml
+	;;
+    describeEmpty)
+	run_eval "${BINDIR}/describe -m empty.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMountPoints)
+        run_eval "CMTK_MOUNTPOINTS=INPUTS=${DATADIR} ${BINDIR}/describe -m INPUTS/spgr_brain_1.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMountPointsMulti)
+        run_eval "CMTK_MOUNTPOINTS=DUMMY=/fs/dummy,INPUTS=${DATADIR} ${BINDIR}/describe -m INPUTS/spgr_brain_1.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMountPointsPrefix)
+        run_eval "CMTK_MOUNTPOINTS=^INPUTS=${DATADIR} ${BINDIR}/describe -m INPUTS/spgr_brain_1.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMountPointsPrefixInvalid)
+        run_eval "CMTK_MOUNTPOINTS=^NPUTS=INVALID,^INPUTS=${DATADIR} ${BINDIR}/describe -m INPUTS/spgr_brain_1.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeDICOM)
+	run_eval "${BINDIR}/describe -m dcm/I0007.dcm > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeDICOMZ)
+	run_eval "${BINDIR}/describe -m dcmz/I0007.dcm > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMosaicDICOM)
+	run_eval "${BINDIR}/describe -m mr-mosaic/fmri.dcm > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMosaicPACSDICOM)
+	run_eval "${BINDIR}/describe -m mr-mosaic-pacs/image.dcm > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeVanderbilt)
+	run_eval "${BINDIR}/describe -m vanderbilt/header.ascii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeBZip2a)
+        run_eval "${BINDIR}/describe -m bzip_test.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeBZip2b)
+        run_eval "${BINDIR}/describe -m bzip_test.nii.bz2 > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeLZMAa)
+        run_eval "${BINDIR}/describe -m lzma_test.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeLZMAb)
+        run_eval "${BINDIR}/describe -m lzma_test.nii.lzma > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeXZa)
+        run_eval "${BINDIR}/describe -m xz_test.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeXZb)
+        run_eval "${BINDIR}/describe -m xz_test.nii.xz > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMR1)
+	run_eval "${BINDIR}/describe -m parc1_bin.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMR2)
+	run_eval "${BINDIR}/describe -m phantom_ax.hdr phantom_co.hdr phantom_sa.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMR3)
+	run_eval "${BINDIR}/describe -m header_only.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMR4)
+	run_eval "${BINDIR}/describe -m phantom_ax.nii phantom_co.nii phantom_sa.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeHuman)
+	run_eval "${BINDIR}/describe --read-ras phantom_ax.nii phantom_co.nii phantom_sa.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMRBiorad)
+	run_eval "${BINDIR}/describe -m bioradvol.PIC > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMRBioradGz)
+	run_eval "${BINDIR}/describe -m gz_bioradvol.PIC.gz > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMRNrrd1)
+	run_eval "${BINDIR}/describe -m phantom_ax.nhdr phantom_co.nhdr phantom_sa.nhdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeMRNrrd2)
+	run_eval "${BINDIR}/describe -m split_ax_0.nhdr split_ax_1.nhdr split_ax_2.nhdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeNrrdNoOrigin)
+	run_eval "${BINDIR}/describe -m phantom_ax_noOrigin.nhdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeNiftiDetached348)
+	run_eval "${BINDIR}/describe -m spgr_brain_nifti_hdr348.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeEmbedAnalyze)
+	run_eval "${BINDIR}/describe -m embed_patient.hdr > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeEmbedNifti)
+	run_eval "${BINDIR}/describe -m embed_patient.nii > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeEmbedNrrd)
+	run_eval "${BINDIR}/describe -m embed_patient.nrrd > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeXform)
+	run_eval "${BINDIR}/describe spgr_brain_12_warp.list vol001_mr_t0t1.list > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    describeXformMachine)
+	run_eval "${BINDIR}/describe -m spgr_brain_12_warp.list vol001_mr_t0t1.list > ${tmpdir}/describe.txt"
+	check_results describe.txt
+	;;
+    destripeDefault)
+        run destripe -y stripes_crop_byte.nii ${tmpdir}/destripe.nii
+	check_results destripe.nii
+	;;
+    destripeKernelFloat)
+        run destripe -y --kernel-fwhm 5 --kernel-radius 2 --write-float stripes_crop_byte.nii ${tmpdir}/destripe.nii
+	check_results destripe.nii
+	;;
+    detect_adni_phantomDefault)
+        run detect_adni_phantom --write-labels ${tmpdir}/labels.nii --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan.nii ${tmpdir}/magphan.xml
+        check_results labels.nii rigid.xform affine.xform magphan.xml
+	;;
+    detect_adni_phantomRefineXform)
+        run detect_adni_phantom --tolerant --refine-xform --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan_lowcontrast.nii ${tmpdir}/magphan.xml
+        check_results rigid.xform affine.xform magphan.xml
+	;;
+    detect_adni_phantomRefineOutliers)
+        run detect_adni_phantom --tolerant --refine-outliers --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan_lowcontrast.nii ${tmpdir}/magphan.xml
+        check_results rigid.xform affine.xform magphan.xml
+	;;
+    detect_adni_phantomExcludeOutliers)
+        run detect_adni_phantom --tolerant --exclude-outliers --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan_lowcontrast.nii ${tmpdir}/magphan.xml
+        check_results rigid.xform affine.xform magphan.xml
+	;;
+    detect_adni_phantomErodeNonStd)
+        run detect_adni_phantom --erode-snr 20 --erode-cnr 2 spgr_magphan.nii ${tmpdir}/magphan.xml
+        check_results magphan.xml
+	;;
+    detect_adni_phantomBadFOV)
+        run_expect_fail detect_adni_phantom spgr_magphan_badFOV.nii ${tmpdir}/magphan.xml
+	;;
+    detect_adni_phantomTolerantBadFOV)
+        run detect_adni_phantom --tolerant --write-labels ${tmpdir}/labels.nii spgr_magphan_badFOV.nii ${tmpdir}/magphan.xml
+	check_results magphan.xml labels.nii
+	;;
+    detect_adni_phantomMissingSphere)
+        run detect_adni_phantom --write-labels ${tmpdir}/labels.nii --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan_missingSphere.nii ${tmpdir}/magphan.xml
+        check_results labels.nii rigid.xform affine.xform magphan.xml
+	;;
+    detect_adni_phantomBrokenSNR)
+        run detect_adni_phantom --write-labels ${tmpdir}/labels.nii --write-rigid ${tmpdir}/rigid.xform --write-affine ${tmpdir}/affine.xform spgr_magphan_brokenSNR.nii ${tmpdir}/magphan.xml
+        check_results labels.nii rigid.xform affine.xform magphan.xml
+	;;
+    detect_spheres_matched_filter)
+        run detect_spheres_matched_filter --radius 15 --filter-margin 2 adni_phantom2mm.nii ${tmpdir}/filtered.nii
+	run convertx --float --downsample-select 4,4,4 ${tmpdir}/filtered.nii ${tmpdir}/filtered.nii
+	check_images filtered.nii
+	;;
+    detect_spheres_matched_filterNormalized)
+        run detect_spheres_matched_filter --normalized --radius 15 --filter-margin 1 adni_phantom2mm.nii ${tmpdir}/filtered.nii
+	run convertx --float --downsample-select 4,4,4 ${tmpdir}/filtered.nii ${tmpdir}/filtered.nii
+	check_images filtered.nii
+	;;
+    dof2mat)
+        run_eval "${BINDIR}/dof2mat parc1_parc2_9dof.xform > ${tmpdir}/matrix"
+	check_results matrix
+        ;;
+    dof2matTranspose)
+        run_eval "${BINDIR}/dof2mat --transpose parc1_parc2_9dof.xform > ${tmpdir}/matrix"
+	check_results matrix
+        ;;
+    dof2matLegacy)
+        run_eval "${BINDIR}/dof2mat vol001_mr_t0t1.list > ${tmpdir}/matrix"
+	check_results matrix
+        ;;    
+    dof2matLegacyFwd)
+        run_eval "${BINDIR}/dof2mat vol001_mr_t0t1_fwd.list > ${tmpdir}/matrix"
+	check_results matrix
+        ;;    
+    dof2matFixed)
+        run_eval "${BINDIR}/dof2mat vol001_mr_t0t1_fwd24.list > ${tmpdir}/matrix"
+	check_results matrix
+        ;;    
+    dof2matSuffix)
+        run_eval "${BINDIR}/dof2mat xform.ZYX > ${tmpdir}/matrix"
+	check_results matrix
+        ;;    
+    dof2mat3x3)
+        run_eval "${BINDIR}/dof2mat --matrix3x3 vol001_mr_t0t1_fwd24.list > ${tmpdir}/matrix"
+	check_results matrix
+        ;;    
+    stream_pixels)
+        run_eval "${BINDIR}/stream_pixels jacobian-01.nii jacobian-02.nii > ${tmpdir}/stream.raw"
+	check_results stream.raw
+	;;
+    stream_pixelsConvert)
+        run_eval "${BINDIR}/stream_pixels --convert int jacobian-01.nii jacobian-02.nii > ${tmpdir}/stream.raw"
+	check_results stream.raw
+	;;
+    stream_pixelsReorient)
+        run_eval "${BINDIR}/stream_pixels --reorient RIP jacobian-01.nii jacobian-02.nii > ${tmpdir}/stream.raw"
+	check_results stream.raw
+	;;
+    stream_pixelsEndian)
+        run_eval "${BINDIR}/stream_pixels --change-endian jacobian-01.nii jacobian-02.nii > ${tmpdir}/stream.raw"
+	check_results stream.raw
+	;;
+    epiunwarp)
+        export CMTK_NUM_THREADS=1
+        run epiunwarp --no-init-shift-com --write-jacobian-fwd ${tmpdir}/jacobian.nii --folding-constraint-weight 0 --smooth-sigma-max 16 --smooth-sigma-min 0 --smooth-sigma-diff 1 --iterations 5 --smoothness-constraint-weight 1e4 --phase-encode-ap dwi_fwd.nii dwi_rev.nii ${tmpdir}/c1.nii ${tmpdir}/c2.nii ${tmpdir}/df.nrrd ${tmpdir}/df2.nrrd
+        unset CMTK_NUM_THREADS
+	check_images c1.nii c2.nii jacobian.nii
+	check_results df.nrrd df2.nrrd
+	;;
+    epiunwarpInitShift)
+        export CMTK_NUM_THREADS=1
+        run epiunwarp --write-jacobian-fwd ${tmpdir}/jacobian.nii --folding-constraint-weight 0 --smooth-sigma-max 16 --smooth-sigma-min 0 --smooth-sigma-diff 1 --iterations 5 --smoothness-constraint-weight 1e4 --phase-encode-ap dwi_fwd.nii dwi_rev.nii ${tmpdir}/c1.nii ${tmpdir}/c2.nii ${tmpdir}/df.nrrd
+        unset CMTK_NUM_THREADS
+	check_images c1.nii c2.nii jacobian.nii
+	check_results df.nrrd
+	;;
+    fib2image)
+        run_eval "${BINDIR}/fib2image -o ${tmpdir}/fibers.nii fiber_grid.hdr < fibers.fib"
+	check_images fibers.nii
+        ;;
+    fibxform)
+        run_eval "${BINDIR}/fibxform crop-x30.xform < fibers.fib > ${tmpdir}/output.fib"
+	check_results output.fib
+        ;;
+    fibxformSourceTarget)
+        run_eval "${BINDIR}/fibxform --source-image fiber_grid.hdr --target-image fiber_grid.hdr crop-x30.xform < fibers.fib > ${tmpdir}/output.fib"
+	check_results output.fib
+        ;;
+    filterGaussian)
+	run filter --gaussian 1 --radius 2 rat_fse_erly.hdr ${tmpdir}/filter.hdr
+	check_results filter.img
+	;;
+    filterGaussianSmallKernel)
+	run filter --gaussian 1 --radius 1.1 rat_fse_erly.hdr ${tmpdir}/filter.hdr
+	check_results filter.img
+	;;
+    filterGaussianNoFilter)
+	run filter --gaussian 1 --radius 0.5 rat_fse_erly.hdr ${tmpdir}/filter.hdr
+	check_results filter.img
+	;;
+    filterRohlfing)
+        run filter --rohlfing --intensity-gaussian 1 --gaussian 10 spgr_3t.hdr ${tmpdir}/filter.hdr spgr_3t_mask.hdr
+	check_results filter.img
+	;;
+    filmFourthOrder)
+	run film --coronal --nmi --fourth-order-error --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --write-injected-image ${tmpdir}/injected.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    filmCubic)
+	run film --coronal --nmi --cubic --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --write-injected-image ${tmpdir}/injected.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    filmMSDLinearNoTrunc)
+	run film --msd --coronal --linear --no-truncation --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    filmMISincRefSPGR)
+	run film --mi --coronal --cubic --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --reference-image interleave_3dspgr.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    fit_affine_xform)
+        run fit_affine_xform -o ${tmpdir}/affine.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results affine.xform
+	;;
+    fit_affine_xformRigid)
+        run fit_affine_xform --rigid -o ${tmpdir}/rigid.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results rigid.xform
+	;;
+    fit_affine_xformReverse)
+        run fit_affine_xform -o ${tmpdir}/affine.xform vol001_mr_t1.hdr --inverse vol001_mr_t0t1.list vol001_mr_t0t1_warp.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksRigid)
+        run fit_affine_xform_landmarks landmarksSource landmarksTargetRigid ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksScales)
+        run fit_affine_xform_landmarks landmarksSource landmarksTargetScales ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksShear)
+        run fit_affine_xform_landmarks landmarksSource landmarksTargetShear ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksRigidRigid)
+        run fit_affine_xform_landmarks --rigid landmarksSource landmarksTargetRigid ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksRigidRigidFlip)
+        run fit_affine_xform_landmarks --rigid landmarksSource2 landmarksTarget2 ${tmpdir}/rigid.xform
+	check_results rigid.xform
+	;;
+    fit_affine_xform_landmarksRigidScales)
+        run fit_affine_xform_landmarks --rigid landmarksSource landmarksTargetScales ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_xform_landmarksRigidShear)
+        run fit_affine_xform_landmarks --rigid landmarksSource landmarksTargetShear ${tmpdir}/affine.xform
+	check_results affine.xform
+	;;
+    fit_affine_dfieldDField)
+        run fit_affine_dfield vol001_mr_t0t1_dfield.nrrd ${tmpdir}/affine_fit.xform
+	check_results affine_fit.xform
+	;;
+    fit_affine_dfieldFFD)
+        run fit_affine_dfield vol001_mr_t0t1_warp.xform ${tmpdir}/affine_fit.xform
+	check_results affine_fit.xform
+	;;
+    fit_spline_dfieldSpacing)
+        run fit_spline_dfield --final-cp-spacing 40 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldSpacingMultiLevel)
+        run fit_spline_dfield --final-cp-spacing 40 --levels 2 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldDims)
+        run fit_spline_dfield --final-cp-dims 10,10,5 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldDimsRelative)
+        run fit_spline_dfield --relative --final-cp-dims 10,10,5 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldDimsMultiLevel)
+        run fit_spline_dfield --final-cp-dims 10,10,5 --levels 2 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldDimsMultiLevelSafe)
+        run fit_spline_dfield --final-cp-dims 10,10,5 --levels 400 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_dfieldDimsWithAffine)
+        run fit_spline_dfield --fit-affine-first --final-cp-dims 10,10,5 vol001_mr_t0t1_dfield.nrrd ${tmpdir}/warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_xformSpacing)
+        run fit_spline_xform --final-cp-spacing 40 -o ${tmpdir}/warp.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results warp.xform
+	;;
+    fit_spline_xformSpacingReverse)
+        run fit_spline_xform --final-cp-spacing 40 -o ${tmpdir}/warp.xform vol001_mr_t1.hdr --inverse vol001_mr_t0t1.list vol001_mr_t0t1_warp.xform
+	check_results warp.xform
+	;;
+    fit_spline_xformSpacingMultiLevel)
+        run fit_spline_xform --final-cp-spacing 40 --levels 2 -o ${tmpdir}/warp.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results warp.xform
+	;;
+    fit_spline_xformDims)
+        run fit_spline_xform --final-cp-dims 10,10,5 -o ${tmpdir}/warp.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results warp.xform
+	;;
+    fit_spline_xformDimsMultiLevel)
+        run fit_spline_xform --final-cp-dims 10,10,5 --levels 2 -o ${tmpdir}/warp.xform vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1.list
+	check_results warp.xform
+	;;
+    geomatchAxSa)
+	run_eval_expect_fail "${BINDIR}/geomatch -v phantom_ax.nii.gz phantom_sa.nii.gz >& ${tmpdir}/stderr"
+	check_results stderr
+	;;
+    geomatchAxSaRAS)
+	run_eval_expect_fail "${BINDIR}/geomatch -v --no-check-xforms --read-ras phantom_ax.nii.gz phantom_sa.nii.gz >& ${tmpdir}/stderr"
+	check_results stderr
+	;;
+    geomatchAxSaNoXforms)
+	run_eval "${BINDIR}/geomatch -v --no-check-xforms phantom_ax.nii.gz phantom_sa.nii.gz >& ${tmpdir}/stderr"
+	check_results stderr
+	;;
+    glmDefault)
+	run_eval "${BINDIR}/glm -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_01_sex.img model_param_01_sex.img model_tstat_02_CONST.img model_param_02_CONST.img
+	;;
+    glmNormalize)
+	run_eval "${BINDIR}/glm --normalize -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_01_sex.img model_param_01_sex.img model_tstat_02_CONST.img model_param_02_CONST.img
+	;;
+    glmExp)
+	run_eval "${BINDIR}/glm --exp -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_01_sex.img model_param_01_sex.img model_tstat_02_CONST.img model_param_02_CONST.img
+	;;
+    glmNoConstant)
+	run_eval "${BINDIR}/glm --exclude-constant -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_01_sex.img model_param_01_sex.img
+	;;
+    glmIgnore)
+	run_eval "${BINDIR}/glm --ignore-parameter 1 -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_02_CONST.img model_param_02_CONST.img
+	;;
+    glmSelect)
+	run_eval "${BINDIR}/glm --select-parameter age -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img
+	check_results model_tstat_00_age.img model_param_00_age.img model_tstat_02_CONST.img model_param_02_CONST.img
+	;; 
+    glmCrop)
+	run_eval "${BINDIR}/glm --crop 10,10,0,20,20,2 -v -O ${tmpdir}/model_%s_%02d_%s.hdr jacobian_glm.txt jacobian-%s.nii | fgrep -v ${tmpdir} > ${tmpdir}/model_stdout.txt"
+	check_results model_stdout.txt model_fstat_00_model.img  model_tstat_00_age.img model_param_00_age.img
+	check_results model_tstat_01_sex.img model_param_01_sex.img model_tstat_02_CONST.img model_param_02_CONST.img
+	;;
+    gmmDefault)
+        run gmm --mask gmm/mask.nii gmm/spgr.nii ${tmpdir}/gmm.nii gmm/prior1.nii gmm/prior2.nii gmm/prior3.nii
+	check_results gmm.nii
+	;;
+    gmmAlternative)
+        run gmm --classes 2 --iterations 5 --priors-init-only --prior-epsilon 0.05 --probability-maps gmm/spgr.nii ${tmpdir}/gmm.nii gmm/prior1.nii gmm/prior2.nii
+	check_results gmm.nii
+	check_images gmm_prob1.nii gmm_prob2.nii
+	;;
+    gregxformFordwardBackward)
+	run_eval "cat vol001_t0_points.xyz | ${BINDIR}/gregxform -f vol001_mr_t0t1_warp.xform | ${BINDIR}/gregxform vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyz"
+	check_results vol001_t0_points.xyz
+	;;
+    gregxformAffine)
+	run_eval "cat vol001_t0_points.xyz | ${BINDIR}/gregxform -f vol001_mr_t0t1.list > ${tmpdir}/vol001_t0_points.xyz"
+	check_results vol001_t0_points.xyz
+	;;
+    gregxformAffineFromWarp)
+	run_eval "cat vol001_t0_points.xyz | ${BINDIR}/gregxform --affine -f vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyz"
+	check_results vol001_t0_points.xyz
+	;;
+    gregxformAffineFromWarpFwdBwd)
+	run_eval "cat vol001_t0_points.xyz | ${BINDIR}/gregxform --affine -f vol001_mr_t0t1_warp.xform | ${BINDIR}/gregxform --affine vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyz"
+	check_results vol001_t0_points.xyz
+	;;
+    groupwise_affineFromInit)
+	run groupwise_affine -v --force-background 0 -O ${tmpdir} --dofs 6 --dofs 9 -e 4 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineMatchHistograms)
+        export CMTK_NUM_THREADS=1
+	run groupwise_affine -v --match-histograms --force-background 0 -O ${tmpdir} --dofs 6 --dofs 9 -e 4 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum groupwise_init_brain123.xforms
+	unset CMTK_NUM_THREADS
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineFromInitSampling)
+	run groupwise_affine -v --force-background 0 -O ${tmpdir} --dofs 6 --dofs 9 -e 4 -a 0.25 --downsample-to 1 --sampling-density 0.5 --zero-sum groupwise_init_brain123.xforms
+	## no baseline; this mode uses probabilistic sampling
+	;;
+    groupwise_affineBackground)
+	run groupwise_affine -v --force-background 0 -O ${tmpdir} --template spgr_brain_1.hdr --dofs 6 --dofs 9 -e 2 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineUseTemplate)
+        export CMTK_NUM_THREADS=1
+	run groupwise_affine -v --force-background 0 -O ${tmpdir} --template spgr_brain_1.hdr --dofs 6 --dofs 9 -e 2 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --template-with-data spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+        unset CMTK_NUM_THREADS
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineZeroSumSmooth)
+        export CMTK_NUM_THREADS=1
+	run groupwise_affine -v --smooth 0.5 --downsample-to 0 -O ${tmpdir} --template spgr_brain_1.hdr --dofs 6 --dofs 9 -e 2 -a 0.25 --downsample-from 2 --sampling-density 1.0 --zero-sum spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+        unset CMTK_NUM_THREADS
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineRMIFromInit)
+	run groupwise_affine --rmi --force-background 0 -O ${tmpdir} --dofs 6 --dofs 9 -e 4 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineRMIFromInitDeltaF)
+	run groupwise_affine --rmi --force-background 0 -O ${tmpdir} --dofs 6,9 -e 4 --delta-f-threshold 0.1 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineRMIFromInitSampling)
+	run groupwise_affine --rmi --force-background 0 -O ${tmpdir} --dofs 6 --dofs 9 -e 4 -a 0.25 --downsample-to 1 --sampling-density 0.5 --zero-sum groupwise_init_brain123.xforms
+	## no baseline; this mode uses probabilistic sampling
+	;;
+    groupwise_affineRMIBackground)
+	run groupwise_affine --rmi --force-background 0 -O ${tmpdir} --template spgr_brain_1.hdr --dofs 6 --dofs 9 -e 2 -a 0.25 --downsample-from 2 --downsample-to 1 --sampling-density 1.0 --zero-sum spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_affineRMIZeroSumSmooth)
+	run groupwise_affine --rmi --smooth 0.5  --downsample-to 0 -O ${tmpdir} --template spgr_brain_1.hdr --dofs 6 --dofs 9 -e 2 -a 0.25 --downsample-from 2 --sampling-density 1.0 --zero-sum spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpFromInit)
+	run groupwise_warp -v --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpFromInitProtect)
+	run groupwise_warp -v --force-background 0 -vv --disable-cp-mask box_corner.nii -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms
+	;;
+    groupwise_warpFitFromInit)
+	run groupwise_warp -v --force-background 0 -O ${tmpdir} --grid-spacing 200 --grid-spacing-fit --refine-grid 1 -e 4 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpUseTemplate)
+	run groupwise_warp -v --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 2 --template-with-data spgr_brain_1.hdr groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpUseTemplateMatchHistograms)
+        export CMTK_NUM_THREADS=1
+	run groupwise_warp -v --match-histograms --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 2 --template-with-data spgr_brain_1.hdr groupwise_init_brain123.xforms
+        unset CMTK_NUM_THREADS
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpMatchHistograms)
+        export CMTK_NUM_THREADS=1
+	run groupwise_warp -v --match-histograms --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 2 --template spgr_brain_1.hdr groupwise_init_brain123.xforms
+        unset CMTK_NUM_THREADS
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpFromInitZeroSum)
+	run groupwise_warp -v --zero-sum --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpFromInitNoBG)
+	run groupwise_warp -v -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpUseTemplateNoBG)
+	run groupwise_warp -v -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 2 --template-with-data spgr_brain_1.hdr groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpRMIFromInit)
+	run groupwise_warp --rmi -v --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpRMIFitFromInit)
+	run groupwise_warp --rmi -v --force-background 0 -O ${tmpdir} --grid-spacing 200 --grid-spacing-fit --refine-grid 1 -e 4 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_warpRMIFromInitZeroSum)
+	run groupwise_warp --rmi -v --zero-sum --force-background 0 -O ${tmpdir} --grid-spacing 200 --refine-grid 1 -e 2 -a 1 --downsample-from 2 --downsample-to 1 groupwise_init_brain123.xforms
+	check_results groupwise.xforms average.nii
+	;;
+    groupwise_initCentersOfMass)
+	run groupwise_init -O ${tmpdir} --align-centers-of-mass spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms
+	# cannot compare separate xforms due to local file system path in the file
+	check_results average.nii
+	;;
+    groupwise_initCenterFOV)
+	run groupwise_init -O ${tmpdir} --center-template spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms
+	# cannot compare separate xforms due to local file system path in the file
+	check_results average.nii
+	;;
+    groupwise_initCentersOfMassScale)
+	run groupwise_init -O ${tmpdir} --align-centers-of-mass --init-scales spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms
+	# cannot compare separate xforms due to local file system path in the file
+	check_results average.nii
+	;;
+    groupwise_initCentersOfMassTemplate)
+	run groupwise_init -O ${tmpdir} --template spgr_brain_1.hdr --align-centers-of-mass spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr
+	check_results groupwise.xforms
+	check_results pairs/target-000.list/registration pairs/target-001.list/registration pairs/target-002.list/registration
+	check_results average.nii
+	;;
+    hausdorffBinary12)
+        run_eval "${BINDIR}/hausdorff parc1_bin.hdr parc2_bin.hdr > ${tmpdir}/hd.txt"
+	check_results hd.txt
+	;;
+    hausdorffBinary21)
+        run_eval "${BINDIR}/hausdorff parc2_bin.hdr parc1_bin.hdr > ${tmpdir}/hd.txt"
+	check_results hd.txt
+	;;
+    hausdorffBinaryForced)
+        run_eval "${BINDIR}/hausdorff parc1.hdr parc2.hdr > ${tmpdir}/hd.txt"
+	check_results hd.txt
+	;;
+    histogram)
+	run histogram -o ${tmpdir}/histogram spgr_3t.hdr
+	check_results histogram
+	;;
+    histogramNorm)
+	run histogram --normalize -o ${tmpdir}/histogram spgr_3t.hdr
+	check_results histogram
+	;;
+    histogramBinsMinMax)
+	run histogram --min 300 --max 3000 --nbins 16 -o ${tmpdir}/histogram spgr_3t.hdr
+	check_results histogram
+	;;
+    histogramBinsMinMaxTrunc)
+	run histogram --truncate --min 300 --max 3000 --nbins 16 -o ${tmpdir}/histogram spgr_3t.hdr
+	check_results histogram
+	;;
+    histogramMask)
+	run histogram --mask spgr_3t_mask.hdr -o ${tmpdir}/histogram spgr_3t.hdr
+	check_results histogram
+	;;
+    imagemathAbsPop)
+        run imagemath --in pat001_pet.hdr pat001_mr_T1.hdr --pop --abs --out ${tmpdir}/abs.nii
+	check_results abs.nii
+	;;
+    imagemathSqrSqrt)
+        run imagemath --in pat001_pet.hdr --sqr --sqrt --out ${tmpdir}/abs.nii
+	check_results abs.nii
+	;;
+    imagemathLogExp)
+        run imagemath --in spgr_brain_1.hdr --log --exp --out ${tmpdir}/logexp.nii
+	check_results logexp.nii
+	;;
+    imagemathDupAddMulDiv)
+        run imagemath --in spgr_brain_1.hdr --dup --in spgr_brain_2.hdr spgr_brain_3.hdr --add --mul --div --out ${tmpdir}/damd.nii
+	check_results damd.nii
+	;;
+    imagemathThreshAboveBelow)
+        run imagemath --in pat001_pet.hdr --thresh-above 1000 --thresh-below 0 --out ${tmpdir}/thresh.nii
+	check_results thresh.nii
+	;;
+    imagemathAverage)
+	run imagemath --in parc1_bin.hdr parc2_bin.hdr parc3_bin.hdr --average --out ${tmpdir}/average.hdr
+	check_results average.img
+	;;
+    imagemathVariance)
+	run imagemath --in  spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr --variance --out ${tmpdir}/variance.nii
+	check_results variance.nii
+	;;
+    imagemathMaskAverage)
+        run imagemath --in spgr_3t.hdr spgr_3t_mask.hdr --mask-average --out ${tmpdir}/average.hdr
+	check_results average.img
+	;;
+    imagemathXor)
+	run imagemath --in parc1.hdr --scalar-xor 1 --out ${tmpdir}/xor.hdr
+	check_results xor.img
+	;;
+    imagemathDupFillMaxValue)
+	run imagemath --in parc1.hdr --dup --fill 1 --max-value --out ${tmpdir}/result.hdr
+	check_results result.img
+	;;
+    imagemathAnd)
+        run imagemath --in parc1.hdr --scalar-and 1 --out ${tmpdir}/and.hdr
+	check_results and.img
+	;;
+    imagemathContractLabels)
+	run imagemath --in parc1.hdr parc2.hdr parc3.hdr --contract-labels --out ${tmpdir}/contract.hdr
+	check_results contract.img
+	;;
+    imagemathMaxIndex)
+	run imagemath --in parc1.hdr parc2.hdr parc3.hdr --max-index --out ${tmpdir}/maxidx.nii
+	check_results maxidx.nii
+	;;
+    imagemathMaxValue)
+	run imagemath --in parc1.hdr parc2.hdr parc3.hdr --max-value --out ${tmpdir}/maxval.nii
+	check_results maxval.nii
+	;;
+    imagemathVote)
+	run imagemath --in parc1_bin.hdr parc2_bin.hdr parc3_bin.hdr --vote --out ${tmpdir}/vote.hdr
+	check_results vote.img
+	;;
+    imagemathProduct)
+	run imagemath --in parc1_bin.hdr parc2_bin.hdr parc3_bin.hdr --product --out ${tmpdir}/prod.nii
+	check_results prod.nii
+	;;
+    imagemathStackEntropyLabels)
+	run imagemath --in parc1_bin.hdr parc2_bin.hdr parc3_bin.hdr --stack-entropy-labels --out ${tmpdir}/entropy.hdr
+	check_results entropy.img
+	;;
+    imagemathSTAPLE)
+	run imagemath --in parc1_bin.hdr parc2_bin.hdr parc3_bin.hdr --staple 10 --out ${tmpdir}/staple.hdr
+	check_results staple.img
+	;;
+    imagemathMultiClassSTAPLE)
+	run imagemath --in parc1.hdr parc2.hdr parc3.hdr --mstaple 2 --out ${tmpdir}/mstaple.hdr
+	check_results mstaple.img
+	;;
+    imagemathMultiClassDisputedSTAPLE)
+	run imagemath --in parc1.hdr parc2.hdr parc3.hdr --mstaple-disputed 2 --out ${tmpdir}/mstaple.hdr
+	check_results mstaple.img
+	;;
+    imagemathCombinePCA)
+	run imagemath --in rat_fse_erly.hdr rat_fse_late.hdr --combine-pca --trunc --out ${tmpdir}/combine_pca.hdr
+	check_results combine_pca.img
+	;;
+    imagemathT2)
+	run imagemath --float --in rat_fse_erly.hdr --log --in rat_fse_late.hdr --log --scalar-mul -1 --add --one-over --out ${tmpdir}/t2.hdr
+	check_results t2.img
+	;;
+    imagemathAtan2)
+	run imagemath --float --in rat_fse_erly.hdr rat_fse_late.hdr --atan2 --out ${tmpdir}/atan.nii
+	check_results atan.nii
+	;;
+    imagemathLogOddsAdd)
+	run imagemath --float --in pbmap_wm_2.nii --logit --in pbmap_wm_1.nii --logit --average --logistic --out ${tmpdir}/logodds_add.hdr
+	check_results logodds_add.img
+	;;
+    imagemathLogOddsAdd2)
+	run imagemath --float --in pbmap_wm_2.nii pbmap_wm_1.nii --all --logit --average --all --logistic --out ${tmpdir}/logodds_add.hdr
+	check_results logodds_add.img
+	;;
+    imagemathMatchMeanSDev)
+        run imagemath --in spgr_brain_1.hdr spgr_brain_2.hdr --match-mean-sdev --out ${tmpdir}/match.nii
+        check_results match.nii
+        ;;
+    imagemathMatchMeanSDev3)
+        run imagemath --in spgr_brain_1.hdr spgr_brain_2.hdr spgr_brain_3.hdr --match-mean-sdev3 --out ${tmpdir}/match.nii
+        check_results match.nii
+        ;;
+    imagemathMatchHistograms)
+        run imagemath --in spgr_brain_1.hdr spgr_brain_2.hdr --match-histograms --out ${tmpdir}/match_histograms.hdr
+        check_results match_histograms.img
+        ;;
+    imagemathMatchHistogramsPadding)
+        run imagemath --set-padding-value 0 --in spgr_brain_1.hdr spgr_brain_2.hdr --match-histograms --out ${tmpdir}/match_histograms.hdr
+        check_results match_histograms.img
+        ;;
+    imagemathMatchHistogramsPadding2)
+        run imagemath --in spgr_brain_1.hdr spgr_brain_2.hdr --set-padding-value 0 --match-histograms --out ${tmpdir}/match_histograms.hdr
+        check_results match_histograms.img
+        ;;
+    imagemathMatchHistogramsPaddingUnset)
+        run imagemath --set-padding-value 0 --in spgr_brain_1.hdr --unset-padding --in spgr_brain_2.hdr --match-histograms --out ${tmpdir}/match_histograms.hdr
+        check_results match_histograms.img
+        ;;
+    interleaved_bad_slicesDefault)
+	run interleaved_bad_slices rsfMRI-motion/*.nii* > ${tmpdir}/badSlices.txt
+	check_results badSlices.txt
+	;;
+    interleaved_bad_slicesStdDev1)
+	run interleaved_bad_slices --stdev-thresh 1 rsfMRI-motion/*.nii* > ${tmpdir}/badSlices.txt
+	check_results badSlices.txt
+	;;
+    interleaved_bad_slicesRMS)
+	run interleaved_bad_slices --rms rsfMRI-motion/*.nii* > ${tmpdir}/badSlices.txt
+	check_results badSlices.txt
+	;;
+    interleaved_bad_slicesBulk)
+	run interleaved_bad_slices --bad-slices-thresh 1 rsfMRI-motion/*.nii* > ${tmpdir}/badSlices.txt
+	check_results badSlices.txt
+	;;
+    jidbBoxFourthOrder)
+        run jidb --coronal --nmi --psf box --fourth-order-error --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --write-injected-image ${tmpdir}/injected.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    jidbGaussian)
+	run jidb --coronal --nmi --psf gaussian --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --write-injected-image ${tmpdir}/injected.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    jidbGaussianScale)
+	run jidb --psf gaussian --nmi --psf-scale 0.5 --no-truncation --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    jidbMIRefSPGR)
+	run jidb --mi --passes 3 --num-iterations 3 --injection-kernel-radius 2 --injection-kernel-sigma 1 --reference-image interleave_3dspgr.hdr interleave_thnfse.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    levelsetDefault)
+	run levelset -v vol001_mr_t1.hdr ${tmpdir}/levelset.hdr
+	check_results levelset.img
+	;;
+    levelsetScaleInitial)
+        run levelset -v --scale-initial-sphere 0.5 vol001_mr_t1.hdr ${tmpdir}/levelset.hdr
+	check_results levelset.img
+	;;
+    levelsetBinarizeFastWideBinary)
+        run levelset -v --binarize --delta 1.0 --filter-sigma 4.0 vol001_mr_t1.hdr ${tmpdir}/levelset.hdr
+	check_results levelset.img
+	;;
+    lvoteDefault)
+        run lvote -v -o ${tmpdir}/lvote.nii lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lvote.nii
+	;;
+    lvoteGlobalWeights)
+        run lvote -v -o ${tmpdir}/lvote.nii --use-global-weights lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lvote.nii
+	;;
+    lvoteRadius3)
+        run lvote -v -o ${tmpdir}/lvote.nii --patch-radius 3 lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lvote.nii
+	;;
+    lvoteOutliersGlobal)
+        run lvote -v -o ${tmpdir}/lvote.nii --patch-radius 3 --no-global-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lvote.nii
+	;;
+    lsbaRadius3)
+        run lsba -v -o ${tmpdir}/lsba.nii --patch-radius 3 lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lsba.nii
+	;;
+    lsbaRadius3Outliers)
+        run lsba -v -o ${tmpdir}/lsba.nii --patch-radius 3 --no-local-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lsba.nii
+	;;
+    lsbaRadius3OutliersGlobal)
+        run lsba -v -o ${tmpdir}/lsba.nii --patch-radius 3 --no-global-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lsba.nii
+	;;
+    lsbaRadius3Search1)
+        run lsba -v -o ${tmpdir}/lsba.nii --search-radius 1 --patch-radius 3 --no-local-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lsba.nii
+	;;
+    lmsbaRadius3)
+        run lmsba -v -o ${tmpdir}/lmsba.nii --patch-radius 3 lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lmsba.nii
+	;;
+    lmsbaRadius3Outliers)
+        run lmsba -v -o ${tmpdir}/lmsba.nii --patch-radius 3 --no-local-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lmsba.nii
+	;;
+    lmsbaRadius3OutliersGlobal)
+        run lmsba -v -o ${tmpdir}/lmsba.nii --patch-radius 3 --no-global-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lmsba.nii
+	;;
+    lmsbaRadius3Search1)
+        run lmsba -v -o ${tmpdir}/lmsba.nii --search-radius 1 --patch-radius 3 --no-local-outliers lvote_target.nii lvote_atlas_i0.nii lvote_atlas_l0.nii lvote_atlas_i1.nii lvote_atlas_l1.nii lvote_atlas_i2.nii lvote_atlas_l2.nii
+	check_results lmsba.nii
+	;;
+    make_initial_affineCenterOfMass)
+	run make_initial_affine --mode centers-of-mass box1.hdr box3.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes1)
+	run make_initial_affine --mode principal-axes box1.hdr box2.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes2)
+	run make_initial_affine --mode principal-axes box1.hdr box3.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes3)
+	run make_initial_affine --mode principal-axes box2.hdr box3.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes4)
+	run make_initial_affine --mode principal-axes box1.hdr box4.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes5)
+	run make_initial_affine --mode principal-axes box2.hdr box4.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affinePrincipalAxes6)
+	run make_initial_affine --mode principal-axes box3.hdr box4.hdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdAxSa)
+	run make_initial_affine phantom_ax.nhdr phantom_sa.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdAxCo)
+	run make_initial_affine phantom_ax.nhdr phantom_co.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdSaCo)
+	run make_initial_affine phantom_sa.nhdr phantom_co.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdAxSaNative)
+	run make_initial_affine --native-space phantom_ax.nhdr phantom_sa.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdAxCoNative)
+	run make_initial_affine --native-space phantom_ax.nhdr phantom_co.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDirectionVectorsNrrdSaCoNative)
+	run make_initial_affine --native-space phantom_sa.nhdr phantom_co.nhdr ${tmpdir}/xform
+	check_results xform
+	;;
+    make_initial_affineDB)
+	run make_initial_affine --db ${tmpdir}/db.sqlite box1.hdr box3.hdr ${tmpdir}/xform
+	# only test for crash; local xform path in database is not portable for comparison
+	;;
+    mat2dof1)
+        run_eval "${BINDIR}/mat2dof --transpose --center -28,-48,-28 --offset 28,48,28 --pixel-size 1.06667,0.5,1.06667 --list ${tmpdir} < rigid-air.mat"
+	check_results registration
+	;;
+    mat2dof2)
+        run_eval "${BINDIR}/mat2dof --transpose --center -28,-48,-28 --offset 28,48,28 --pixel-size 1.06667,0.5,1.06667 --inverse --list ${tmpdir} < rigid-air.mat"
+	check_results registration
+	;;
+    mat2dofFile)
+        run_eval "${BINDIR}/mat2dof --transpose --center -28,-48,-28 --offset 28,48,28 --pixel-size 1.06667,0.5,1.06667 --list ${tmpdir} rigid-air.mat"
+	check_results registration
+	;;    
+    mat2dofToFile)
+        run_eval "${BINDIR}/mat2dof -o ${tmpdir}/xform rigid-air.mat"
+	check_results xform
+	;;    
+    mat2dofToFileAppend)
+	echo "WILL THIS STILL BE HERE?" > ${tmpdir}/xform
+        run_eval "${BINDIR}/mat2dof --append -o ${tmpdir}/xform rigid-air.mat"
+	check_results xform
+	;;    
+    mcaffine1)
+	export CMTK_NUM_THREADS=1
+	run mcaffine --downsample-from 4 --downsample-to 1 --initial-step-size 1 --final-step-size 0.5 --dofs 6 --covariance -o ${tmpdir}/xform pat001_mr_T1.hdr -- pat001_pet.hdr
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcaffine2)
+	run mcaffine --initial-xform mcaffine2_initial.xform --downsample-from 4 --downsample-to 1 --initial-step-size 1 --final-step-size 0.5 --dofs 6 --histograms -o ${tmpdir}/xform pat001_mr_T1.hdr -- pat001_pet.hdr
+	check_results xform
+	;;
+    mcaffine3)
+	run mcaffine --downsample-from 4 --downsample-to 1 --initial-step-size 1 --final-step-size 0.5 --dofs 6 --dofs 9 --covariance -o ${tmpdir}/xform rat_fse_erly.hdr rat_fse_late.hdr -- rat2_fse_erly.hdr rat2_fse_late.hdr
+	check_results xform
+	;;
+    mcaffine4)
+	run mcaffine --downsample-from 4 --downsample-to 1 --delta-f-threshold 0.1 --initial-step-size 1 --final-step-size 0.5 --dofs 6,9 --covariance -o ${tmpdir}/xform rat_fse_erly.hdr rat_fse_late.hdr -- rat2_fse_erly.hdr rat2_fse_late.hdr
+	check_results xform
+	;;
+    mcwarp1)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --refine-grid 2 --covariance -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcwarp2)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --refine-grid 2 --histograms -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcwarp3)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --delta-f-threshold 0.1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --refine-grid 2 --covariance -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcwarp4)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --delta-f-threshold 0.1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --refine-grid 2 --covariance --intensity-correction -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcwarp5)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --delta-f-threshold 0.1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --adaptive-fix-thresh-factor 0.5 -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mcwarp6)
+	# Test breaks when using multiple threads due to floating point effects
+	export CMTK_NUM_THREADS=1
+	run mcwarp --downsample-from 2 --downsample-to 1 --delta-f-threshold 0.1 --initial-step-size 1 --final-step-size 0.5 --grid-spacing 14 --adaptive-fix-thresh-factor-entropy 0.5 -o ${tmpdir}/xform mcaffine_rat_rat2.xform
+	unset CMTK_NUM_THREADS
+	check_results xform
+	;;
+    mk_adni_phantom2mm)
+        run mk_adni_phantom --resolution 2 ${tmpdir}/phantom.nii
+        check_results phantom.nii
+        ;;
+    mk_adni_phantom2mmLabels)
+        run mk_adni_phantom --resolution 2 --write-labels ${tmpdir}/phantom.lbl --write-landmarks ${tmpdir}/phantom.xyz --labels ${tmpdir}/phantom.nii
+        check_results phantom.nii phantom.lbl phantom.xyz
+        ;;
+    mk_analyze_hdrDefault)
+        run mk_analyze_hdr ${tmpdir}/analyze.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/analyze.hdr | fgrep --invert-match FNAME > ${tmpdir}/analyze.txt"
+	check_results analyze.hdr analyze.txt
+	;;
+    mk_analyze_hdrImport)
+        run mk_analyze_hdr --import spgr_3t.hdr ${tmpdir}/analyze.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/analyze.hdr | fgrep --invert-match FNAME > ${tmpdir}/analyze.txt"
+	check_results analyze.hdr analyze.txt
+	;;
+    mk_analyze_hdrLittleEndian)
+        run mk_analyze_hdr --description LittleEndian --little-endian --float --dims 100,200,300 --voxel 0.3,0.2,0.1 --offset 1024 ${tmpdir}/analyze.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/analyze.hdr | fgrep --invert-match FNAME > ${tmpdir}/analyze.txt"
+	check_results analyze.hdr analyze.txt
+	;;
+    mk_analyze_hdrBigEndian)
+        run mk_analyze_hdr --description BigEndian  --big-endian --ushort --dims 100,200,300 --voxel 0.3,0.2,0.1 --offset 1024 ${tmpdir}/analyze.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/analyze.hdr | fgrep --invert-match FNAME > ${tmpdir}/analyze.txt"
+	check_results analyze.hdr analyze.txt
+	;;
+    mk_nifti_hdrDefault)
+        run mk_nifti_hdr ${tmpdir}/nifti.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/nifti.hdr | fgrep --invert-match FNAME > ${tmpdir}/nifti.txt"
+	check_results nifti.hdr nifti.txt
+	;;
+    mk_nifti_hdrDescription)
+        run_eval "${BINDIR}/mk_nifti_hdr --description \"This is a description text\" ${tmpdir}/nifti.hdr"
+	check_results nifti.hdr
+	;;
+    mk_nifti_hdrImport)
+        run mk_nifti_hdr --import phantom_ax.nii ${tmpdir}/nifti.hdr
+	run_eval "${BINDIR}/describe -m ${tmpdir}/nifti.hdr | fgrep --invert-match FNAME > ${tmpdir}/nifti.txt"
+	check_results nifti.hdr nifti.txt
+	;;
+    mk_nifti_hdrDefaultAttached)
+        run mk_nifti_hdr --attached ${tmpdir}/nifti.nii
+	run_eval "${BINDIR}/describe -m ${tmpdir}/nifti.nii | fgrep --invert-match FNAME > ${tmpdir}/nifti.txt"
+	check_results nifti.nii nifti.txt
+	;;
+    mk_nifti_hdrDescriptionAttached)
+        run_eval "${BINDIR}/mk_nifti_hdr --attached --description \"This is a description text\" ${tmpdir}/nifti.nii"
+	check_results nifti.nii
+	;;
+    mk_nifti_hdrImportAttached)
+        run mk_nifti_hdr --attached --import phantom_ax.nii ${tmpdir}/nifti.nii
+	run_eval "${BINDIR}/describe -m ${tmpdir}/nifti.nii | fgrep --invert-match FNAME > ${tmpdir}/nifti.txt"
+	check_results nifti.nii nifti.txt
+	;;
+    mk_phantom_3dBoxIndexed)
+	run mk_phantom_3d -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 2,2,2 box 2,2,2 5,5,5 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dBoxIndexedRange)
+        run mk_phantom_3d -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 2,2,2 box 11,11,11 5,5,5 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dBoxAbsolute)
+	run mk_phantom_3d --absolute -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,1 box 2,2,2 5,5,5 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dBoxRelative)
+    run mk_phantom_3d --relative -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,1 box 0.1,0.2,0.3 0.5,0.5,0.5 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dSphereIndexed)
+	run mk_phantom_3d --coordinates indexed -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,1 sphere 7,7,7 5 20
+	check_results phantom.nii
+	;;
+    mk_phantom_3dSphereAbsolute)
+        run mk_phantom_3d --coordinates absolute -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,1 sphere 7,7,7 5 20
+	check_results phantom.nii
+	;;
+    mk_phantom_3dSphereAbsolute2)
+        run mk_phantom_3d --coordinates absolute -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,2 sphere 7,7,7 5 20
+	check_results phantom.nii
+	;;
+    mk_phantom_3dSphereRelative)
+        run mk_phantom_3d --coordinates relative -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,1 sphere 0.5,0.4,0.3 0.4 20
+	check_results phantom.nii
+	;;
+    mk_phantom_3dSphereRelative2)
+        run mk_phantom_3d --coordinates relative -o ${tmpdir}/phantom.nii --dims 10,10,10 --voxel 1,1,2 sphere 0.5,0.4,0.3 0.4 20
+	check_results phantom.nii
+	;;
+    mk_phantom_3dBoxSphere)
+	run mk_phantom_3d -o ${tmpdir}/phantom.nii --char --bg 50 --dims 10,10,10 --voxel 1,1,1 sphere 7,7,7 5 20 box 2,2,2 5,5,5 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dImport)
+	run mk_phantom_3d -o ${tmpdir}/phantom.nii --import spgr_3t_mask.hdr sphere 30,40,30 20 0
+	check_results phantom.nii
+	;;
+    mk_phantom_3dImportGrid)
+	run mk_phantom_3d -o ${tmpdir}/phantom.nii --import-grid spgr_3t_mask.hdr sphere 30,40,30 20 10
+	check_results phantom.nii
+	;;
+    mk_phantom_3dMRSVoxel)
+	run mk_phantom_3d --echo -v --bg 0 -o ${tmpdir}/voxel.nii --import-grid ge-mrs/lfse.nii mrs-voxel ge-mrs/spectro.dcm 100
+	check_results voxel.nii
+	;;
+    mrbiasMulIncremental)
+	run mrbias --incremental -M 2 --write-bias-mul ${tmpdir}/bias_mul.hdr --thresh-min 100 spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img bias_mul.img
+	;;
+    mrbiasMulAutoThresh)
+        run mrbias -v -M 2 --set-padding-value 0 --thresh-auto spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    mrbiasMulOtsuThresh)
+        run mrbias -v -M 2 --set-padding-value 0 --thresh-otsu-nbins 256 spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img
+	;;
+    mrbiasMulLogIntensity)
+	run mrbias --log-intensities -M 2 --write-bias-mul ${tmpdir}/bias_mul.hdr --thresh-min 100 spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img bias_mul.img
+	;;
+    mrbiasAddMulMask)
+	export CMTK_NUM_THREADS=1
+	run mrbias -A 1 -M 2 --mask spgr_3t_mask.hdr --write-bias-add ${tmpdir}/bias_add.hdr --write-bias-mul ${tmpdir}/bias_mul.hdr spgr_3t.hdr ${tmpdir}/corrected.hdr
+	unset CMTK_NUM_THREADS
+	check_results corrected.img bias_mul.img bias_add.img
+	;;
+    mrbiasMulIncrementalCUDA)
+	run mrbias_cuda --incremental -M 2 --write-bias-mul ${tmpdir}/bias_mul.hdr --thresh-min 100 spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img bias_mul.img
+	;;
+    mrbiasMulLogIntensityCUDA)
+	run mrbias_cuda --log-intensities -M 2 --write-bias-mul ${tmpdir}/bias_mul.hdr --thresh-min 100 spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img bias_mul.img
+	;;
+    mrbiasAddMulMaskCUDA)
+	run mrbias_cuda -A 1 -M 2 --mask spgr_3t_mask.hdr --write-bias-add ${tmpdir}/bias_add.hdr --write-bias-mul ${tmpdir}/bias_mul.hdr spgr_3t.hdr ${tmpdir}/corrected.hdr
+	check_results corrected.img bias_mul.img bias_add.img
+	;;
+    overlap)
+	run_eval "${BINDIR}/overlap parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    overlapNumLabels)
+	run_eval "${BINDIR}/overlap -N 2 parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    overlapByLabel)
+	run_eval "${BINDIR}/overlap --by-label parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    overlapFirst)
+	run_eval "${BINDIR}/overlap --first-label 10 parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    overlapFirstByLabel)
+	run_eval "${BINDIR}/overlap --by-label --first-label 10 parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    overlapFirstByLabelNumLabels)
+	run_eval "${BINDIR}/overlap --by-label --first-label 10 --num-labels 10 parc1.hdr parc2.hdr parc3.hdr > ${tmpdir}/overlap.txt"
+	check_results overlap.txt
+	;;
+    probeIndexed)
+        run_eval "echo 98 154 1 |${BINDIR}/probe --indexed phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probeAbsolute)
+        run_eval "echo 91.875 144.375 3 |${BINDIR}/probe --absolute phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probeRelative)
+        run_eval "echo 0.384313725 0.603921569 0.5 |${BINDIR}/probe --relative phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probePhysical)
+        run_eval "echo -27.656 24.844 0 |${BINDIR}/probe --physical phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probeIndexedLinear)
+        run_eval "echo 98.5 154.5 1 |${BINDIR}/probe --linear --indexed phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probeIndexedCubic)
+        run_eval "echo 98.5 154.5 1 |${BINDIR}/probe --cubic --indexed phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    probeIndexedSinc)
+        run_eval "echo 98.5 154.5 1 |${BINDIR}/probe --sinc-cosine --indexed phantom_ax.nii.gz > ${tmpdir}/probe.txt"
+	check_results probe.txt
+	;;
+    pxsearchIndexed)
+        run_eval "echo 98 154 1 |${BINDIR}/pxsearch --input-coordinates indexed --output-coordinates indexed phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    pxsearchIndexedRadius3)
+        run_eval "echo 98 154 1 |${BINDIR}/pxsearch --radius 3 --input-coordinates indexed --output-coordinates indexed phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    pxsearchIndexedRadius311)
+        run_eval "echo 98 154 1 |${BINDIR}/pxsearch --radius 3,1,1 --input-coordinates indexed --output-coordinates indexed phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    pxsearchAbsolute)
+        run_eval "echo 91.875 144.375 3 |${BINDIR}/pxsearch --input-coordinates absolute --output-coordinates absolute phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    pxsearchRelative)
+        run_eval "echo 0.384313725 0.603921569 0.5 |${BINDIR}/pxsearch --input-coordinates relative --output-coordinates relative phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    pxsearchPhysical)
+        run_eval "echo -27.656 24.844 0 |${BINDIR}/pxsearch --input-coordinates physical --output-coordinates physical phantom_ax.nii.gz > ${tmpdir}/pxsearch.txt"
+	check_results pxsearch.txt
+	;;
+    reformatxNoXform)
+	run reformatx --linear -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr
+	check_results reformat.img
+	;;
+    reformatxLinear)
+	run reformatx --linear -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxNearestNeighbor)
+	run reformatx --nn -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxPartialVolume)
+	run reformatx --pv -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxLinearFwdBwd)
+	run reformatx --linear --short -o ${tmpdir}/reformat.hdr --floating vol001_mr_t0.hdr vol001_mr_t0.hdr vol001_mr_t0t1.list --inverse vol001_mr_t0t1.list
+	check_results vol001_mr_t0.img
+	;;
+    reformatxCubic)
+	run reformatx --cubic -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxCubicInverse)
+	run reformatx --cubic -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr --inverse vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxSincCosine)
+	run reformatx --sinc-cosine -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxSincHamming)
+	run reformatx --sinc-hamming -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxSincCosine5)
+	run reformatx --sinc-cosine --sinc-window-radius 5 -o ${tmpdir}/reformat.hdr --floating vol001_mr_t1.hdr vol001_mr_t0_crop.hdr vol001_mr_t0t1.list
+	check_results reformat.img
+	;;
+    reformatxMassPreserving)
+        run reformatx --preserve-mass -o ${tmpdir}/reformat.hdr  --floating vol001_mr_t1.hdr vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform
+	check_results reformat.img
+	;;
+    reformatxJacobian)
+	run reformatx --jacobian-correct-global -o ${tmpdir}/jacobian.hdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform --jacobian vol001_mr_t0t1_warp.xform
+	check_results jacobian.img
+	;;
+    reformatxJacobianDefault)
+	run reformatx -o ${tmpdir}/jacobian.hdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform --jacobian vol001_mr_t0t1_warp.xform
+	check_results jacobian.img
+	;;
+    reformatxInverseJacobian)
+	run reformatx --jacobian-correct-global -o ${tmpdir}/jacobian.hdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform --jacobian --inverse vol001_mr_t0t1_warp.xform
+	check_results jacobian.img
+	;;
+    reformatxInverseJacobianDefault)
+	run reformatx -o ${tmpdir}/jacobian.hdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform --jacobian --inverse vol001_mr_t0t1_warp.xform
+	check_results jacobian.img
+	;;
+    reformatxDfieldNrrd)
+	run reformatx -o ${tmpdir}/reformat.hdr --floating parc2.hdr parc1.hdr parc1_parc2_dfield.nrrd
+	check_results reformat.img
+	;;
+    reformatxDfieldNrrdJacobian)
+	run reformatx -o ${tmpdir}/jacobian.hdr vol001_mr_t0.hdr --jacobian vol001_mr_t0t1_dfield.nrrd
+	check_results jacobian.img
+	;;
+    reformatxTargetGrid)
+        run reformatx -o ${tmpdir}/reformat.nii --target-grid 32,43,21:5.625,5.625,7.5 --floating spgr_brain_1.hdr
+	check_results reformat.nii
+	;;
+    reformatxTargetGridAnalyze)
+        run reformatx -o ${tmpdir}/reformat.hdr --target-grid 32,43,21:5.625,5.625,7.5 --floating spgr_brain_1.hdr
+	check_results reformat.hdr reformat.img
+	;;
+    reformatxTargetGridOffset)
+        run reformatx -o ${tmpdir}/reformat.nii --target-grid 32,43,21:5.625,5.625,7.5:5.625,0,0 --floating spgr_brain_1.hdr
+	check_results reformat.nii
+	;;
+    registrationAffineMrMrMSD)
+	run registration -i --dofs 6,9 --msd --match-histograms -o ${tmpdir} pat001_mr_T1.hdr pat002_mr_T2.hdr
+	check_results registration
+	;;
+    registrationFromList)
+	run registration -v --dofs 0 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    registrationWithInitial)
+	run registration -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list vol001_mr_t0.hdr vol001_mr_t1.hdr
+	check_results registration
+	;;
+    registrationWithInitialInverse)
+	run registration -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list --initial-is-inverse vol001_mr_t0t1.list
+	check_results registration
+	;;
+    registrationAutoLevelsRat4)
+	run registration -v -i --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationAutoLevelsRat2)
+	run registration -v -i --auto-multi-levels 2 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationAutoLevelsRatToRat)
+	run registration -v -i --auto-multi-levels 2 --dofs 6,9 --msd --match-histograms -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationAutoLevelsRatToRatDeltaFThreshold)
+	run registration -v -i --auto-multi-levels 2 --dofs 6,9 --msd --match-histograms --delta-f-threshold 0.01 -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationAutoLevelsCt3)
+	run registration --msd --auto-multi-levels 3 --dofs 6 -o ${tmpdir} pat002_ct.hdr pat002_ct.hdr
+	check_results registration
+	;;
+    registrationxAffineMrMrMSD)
+	run registrationx --init fov --dofs 6,9 --msd --match-histograms -o ${tmpdir} pat001_mr_T1.hdr pat002_mr_T2.hdr
+	check_results registration
+	;;
+    registrationxShearNoScaleMrMrMSD)
+	run registrationx --auto-multi-levels 4 --init fov --dofs 603 --msd --match-histograms -o ${tmpdir} pat001_mr_T1.hdr pat002_mr_T2.hdr
+	check_results registration
+	;;
+    registrationxFromList)
+	run registrationx -v --dofs 0 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    registrationxWithInitial)
+	run registrationx -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list vol001_mr_t0.hdr vol001_mr_t1.hdr
+	check_results registration
+	;;
+    registrationxWithInitialInverse)
+	run registrationx -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list --initial-is-inverse vol001_mr_t0t1.list
+	check_results registration
+	;;
+    registrationxFromListDB)
+	run registrationx --db ${tmpdir}/db.sqlite -v --dofs 0 -o ${tmpdir} vol001_mr_t0t1.list
+	;;
+    registrationxWithInitialDB)
+	run registrationx --db ${tmpdir}/db.sqlite -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list vol001_mr_t0.hdr vol001_mr_t1.hdr
+	;;
+    registrationxWithInitialInverseDB)
+	run registrationx --db ${tmpdir}/db.sqlite -v --dofs 0 -o ${tmpdir} --initial vol001_mr_t0t1.list --initial-is-inverse vol001_mr_t0t1.list
+	;;
+    registrationxAutoLevelsRat4)
+	run registrationx -v --auto-multi-levels 4 --dofs 6 -o ${tmpdir} --write-itk ${tmpdir}/xform.tfm rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration xform.tfm
+	;;
+    registrationxAutoLevelsRat4XY)
+        run registrationx -v --restrict-in-plane xy --auto-multi-levels 4 --dofs 6,9,12 -o ${tmpdir} rat_fse_erly.hdr rat2_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4XZ)
+        run registrationx -v --restrict-in-plane xz --auto-multi-levels 4 --dofs 6,9,12 -o ${tmpdir} rat_fse_erly.hdr rat2_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4YZ)
+        run registrationx -v --restrict-in-plane yz --auto-multi-levels 4 --dofs 6,9,12 -o ${tmpdir} rat_fse_erly.hdr rat2_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4Symmetric)
+	run registrationx -v --symmetric --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4NONE)
+	run registrationx -v --init none --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4FOV)
+	run registrationx -v --init fov --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4COM)
+	run registrationx -v --init com --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat4PAX)
+	run registrationx -v --init pax --auto-multi-levels 4 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat2)
+	run registrationx -v --init fov --auto-multi-levels 2 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat2Cubic)
+	run registrationx -v --cubic --init fov --auto-multi-levels 2 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat2Sinc)
+	run registrationx -v --cosine-sinc --init fov --auto-multi-levels 2 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRat2NN)
+	run registrationx -v --nearest-neighbor --init fov --auto-multi-levels 2 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRat)
+        export CMTK_NUM_THREADS=1
+        run registrationx -v --init fov --auto-multi-levels 2 --dofs 6,9 --msd --match-histograms -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+        unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRatNCC)
+        run registrationx -v --init fov --auto-multi-levels 2 --ncc -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRatRMS)
+        run registrationx -v --init fov --auto-multi-levels 2 --rms -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRatCR)
+        run registrationx -v --init fov --auto-multi-levels 2 --cr -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRatMI)
+        run registrationx -v --init fov --auto-multi-levels 2 --mi -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsRatToRatDeltaFThreshold)
+        export CMTK_NUM_THREADS=1
+	run registrationx -v --init fov --auto-multi-levels 2 --dofs 6,9 --msd --match-histograms --delta-f-threshold 0.01 -o ${tmpdir} rat_fse_erly.hdr rat2_fse_erly.hdr
+        unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    registrationxAutoLevelsCt3)
+	run registrationx --pad-flt -10000 --write-reformatted ${tmpdir}/reformat.nii --msd --auto-multi-levels 3 --dofs 6 -o ${tmpdir} pat002_ct.hdr pat002_ct.hdr
+	check_results registration reformat.nii
+	;;
+    registrationxAutoLevelsLabelsNN)
+        run registrationx -v --interpolation nearest-neighbor --class-ref label --class-flt label --auto-multi-levels 4 --dofs 6,9 --nmi -o ${tmpdir} parc1.hdr parc2.hdr
+	check_results registration
+	;;
+    registrationxAutoLevelsLabelsPV)
+        run registrationx -v --interpolation partial-volume --class-ref label --class-flt label --auto-multi-levels 4 --dofs 6,9 --nmi -o ${tmpdir} parc1.hdr parc2.hdr
+	check_results registration
+	;;
+    reorientHdrSaToAx)
+	run reorient -o RAS phantom_sa.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientHdrSaToAxNifti)
+	run reorient -i RAS -o RAS phantom_sa.hdr ${tmpdir}/reorient.nii
+	check_results reorient.nii
+	;;
+    reorientHdrCoToAx)
+	run reorient -o RAS phantom_co.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientHdrAxToSa)
+	run reorient -o ASL phantom_ax.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientHdrCoToSa)
+	run reorient -o ASL phantom_co.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientHdrAxToCo)
+	run reorient -o LSA phantom_ax.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientHdrSaToCo)
+	run reorient -o LSA phantom_sa.hdr ${tmpdir}/reorient.hdr
+	check_results reorient.hdr reorient.img
+	;;
+    reorientNrrdToNrrd)
+        run reorient vol001_mr_t0_crop.nrrd ${tmpdir}/vol001_mr_t0_crop.nhdr
+        check_results vol001_mr_t0_crop.nhdr vol001_mr_t0_crop.raw
+	;;
+    reorientNrrdToNrrdRAS)
+        run reorient --output-orientation RAS vol001_mr_t0_crop.nrrd ${tmpdir}/vol001_mr_t0_crop.nhdr
+        check_results vol001_mr_t0_crop.nhdr vol001_mr_t0_crop.raw
+	;;
+    reorientNrrdToNrrdSpaceLPS)
+        run reorient --output-space LPS vol001_mr_t0_crop.nrrd ${tmpdir}/vol001_mr_t0_crop.nhdr
+        check_results vol001_mr_t0_crop.nhdr vol001_mr_t0_crop.raw
+	;;
+    registrationRigidMrPet)
+	run registration -i --dofs 6 -o ${tmpdir} pat001_mr_T1.hdr pat001_pet.hdr
+	check_results registration
+	;;
+    registrationRigidMrCt)
+	run registration -i --dofs 6 -o ${tmpdir} pat002_mr_T2.hdr pat002_ct.hdr
+	check_results registration
+	;;
+    registrationRigidCt)
+	run registration --msd -i --dofs 6 -o ${tmpdir} pat002_ct.hdr pat002_ct.hdr
+	check_results registration
+	;;
+    registrationRigidPetMr)
+	run registration -i --dofs 6 -o ${tmpdir} pat001_pet.hdr pat001_mr_T1.hdr
+	check_results registration
+	;;
+    registrationRigidCtMr)
+	run registration -i --dofs 6 -o ${tmpdir} pat002_ct.hdr pat002_mr_T2.hdr
+	check_results registration
+	;;
+    registrationRigidMrPetNoSwap)
+	run registration --no-switch -i --dofs 6 -o ${tmpdir} pat001_mr_T1.hdr pat001_pet.hdr
+	check_results registration
+	;;
+    registrationRigidMrCtNoSwap)
+	run registration --no-switch -i --dofs 6 -o ${tmpdir} pat002_mr_T2.hdr pat002_ct.hdr
+	check_results registration
+	;;
+    registrationRigidPetMrDOF9)
+	run registration -i --dofs 9 -o ${tmpdir} pat001_pet.hdr pat001_mr_T1.hdr
+	check_results registration
+	;;
+    registrationRigidCtMrDOF7)
+	run registration -i --dofs 7 -o ${tmpdir} pat002_ct.hdr pat002_mr_T2.hdr
+	check_results registration
+	;;
+    registrationRigidLabelsDOF69)
+	run registration --dofs 6 --dofs 9 --class-ref label --class-flt label -o ${tmpdir} parc1.hdr parc2.hdr
+	check_results registration
+	;;
+    registrationRigidCrop)
+	run registration -v -i -e 2.0 -a 0.125 --sampling 0.25 --crop-index-ref 17,20,0,47,49,12 --crop-index-flt 12,15,0,52,54,12 --dofs 6 -o ${tmpdir} rat_fse_erly.hdr rat_fse_late.hdr
+	check_results registration
+	;;
+    sbaDefault)
+	run sba -o ${tmpdir}/sba.nii -n 255 parc1.hdr parc2.hdr parc3.hdr
+	check_results sba.nii
+	;;
+    sbaOutliers)
+	run sba --exclude-outliers -o ${tmpdir}/sba.nii -n 255 parc1.hdr parc1.hdr parc1.hdr parc1.hdr parc1.hdr parc2.hdr
+	check_results sba.nii
+	;;
+    sbaOutliers2)
+	run sba --exclude-outliers -o ${tmpdir}/sba.nii -n 255 parc1.hdr parc2.hdr parc3.hdr
+	check_results sba.nii
+	;;
+    sbaiDefault)
+	run sbai -o ${tmpdir}/sbai.nii -n 255 parc12_warp.xform parc13_warp.xform
+	check_results sbai.nii
+	;;
+    sequenceDefault)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence > ${tmpdir}/sequence.txt"
+	check_results sequence.txt
+	;;
+    sequenceFormat)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --format %g > ${tmpdir}/sequence.txt"
+	check_results sequence.txt
+	;;
+    sequenceThresh)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --thresh 1e4 > ${tmpdir}/sequence.txt"	
+	check_results sequence.txt
+	;;
+    sequenceAbs)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --abs > ${tmpdir}/sequence.txt"
+	check_results sequence.txt
+	;;
+    sequenceAbsThresh)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --thresh 1000 --abs > ${tmpdir}/sequence.txt"
+	check_results sequence.txt
+	;;
+    sequenceHistogramDefault)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --write-histogram ${tmpdir}/histogram.csv > ${tmpdir}/sequence.txt"
+	check_results sequence.txt histogram.csv
+	;;
+    sequenceHistogramExplicit)
+	run_eval "cat numbers.txt | ${BINDIR}/sequence --histogram-bins 10 --histogram-min 0 --histogram-max 1000 --write-histogram ${tmpdir}/histogram.csv > ${tmpdir}/sequence.txt"
+	check_results sequence.txt histogram.csv
+	;;
+    similarityGrey)
+	run_eval "${BINDIR}/similarity --histogram-text-file ${tmpdir}/histogram.txt rat_fse_erly.hdr rat_fse_late.hdr > ${tmpdir}/similarity.txt"
+	check_results histogram.txt similarity.txt
+	;;
+    similarityWithInf)
+	run_eval "${BINDIR}/similarity float_with_inf.nii.gz float_with_inf.nii.gz > ${tmpdir}/similarity.txt"
+	check_results similarity.txt
+	;;
+    similarityLabels)
+	run_eval "${BINDIR}/similarity --labels --histogram-text-file ${tmpdir}/histogram.txt parc1.hdr parc2.hdr > ${tmpdir}/similarity.txt"
+	check_results histogram.txt similarity.txt
+	;;
+    similarityGreyMask)
+	run_eval "${BINDIR}/similarity --mask rat_fse_erly.hdr --histogram-text-file ${tmpdir}/histogram.txt rat_fse_erly.hdr rat_fse_late.hdr > ${tmpdir}/similarity.txt"
+	check_results histogram.txt similarity.txt
+	;;
+    similarityLabelsMask)
+	run_eval "${BINDIR}/similarity --mask parc3_bin.hdr --labels --histogram-text-file ${tmpdir}/histogram.txt parc1.hdr parc2.hdr > ${tmpdir}/similarity.txt"
+	check_results histogram.txt similarity.txt
+	;;
+    splitAxial)
+	run split --output-xform-path ${tmpdir}/split_ax_%1d.xform --axial spgr_3t.hdr ${tmpdir}/split_ax_%1d.hdr
+	check_results split_ax_0.img split_ax_1.img split_ax_0.xform split_ax_1.xform
+	;;
+    splitAxialSlices)
+	run split --factor 0 --axial phantom_ax_downsampled.nii ${tmpdir}/slice_%1d.nii
+	check_results slice_0.nii slice_1.nii slice_2.nii
+	;;
+    splitAxialNrrd)
+	run split --axial --factor 3 spgr_3t.hdr ${tmpdir}/split_ax_%1d.nhdr
+	check_results split_ax_0.nhdr split_ax_0.raw split_ax_1.nhdr split_ax_1.raw split_ax_2.nhdr split_ax_2.raw
+	;;
+    splitSagittal2)
+	run split --output-xform-path ${tmpdir}/split_sa_%1d.xform --factor 2 --sagittal spgr_3t.hdr ${tmpdir}/split_sa_%1d.hdr
+	check_results split_sa_0.img split_sa_1.img split_sa_0.xform split_sa_1.xform
+	;;
+    splitCoronal3)
+	run split --output-xform-path ${tmpdir}/split_co_%1d.xform --factor 3 --coronal spgr_3t.hdr ${tmpdir}/split_co_%1d.hdr
+	check_results split_co_0.img split_co_1.img split_co_2.img split_co_0.xform split_co_1.xform split_co_2.xform
+	;;
+    statisticsGrey)
+	run_eval "${BINDIR}/statistics spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsPercentiles)
+	run_eval "${BINDIR}/statistics -p 0.1 --percentile 0.5 -p 0.75 spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsGreyColumn)
+	run_eval "${BINDIR}/statistics -C spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsGreyExpNotation)
+	run_eval "${BINDIR}/statistics -E spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsGreyMask)
+	run_eval "${BINDIR}/statistics -m spgr_3t_mask.hdr spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsGreyMultiMask)
+	run_eval "${BINDIR}/statistics -M spgr_3t_mask.hdr spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsMaskMismatch)
+	run_eval "${BINDIR}/statistics -M parc1.hdr spgr_3t.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsLabels)
+	run_eval "${BINDIR}/statistics -l parc1.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsLabelsAllUpToHi)
+	run_eval "${BINDIR}/statistics --mask-output-all-up-to 256 -l parc1.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    statisticsLabelsAllUpToLo)
+	run_eval "${BINDIR}/statistics --mask-output-all-up-to 2 -l parc1.hdr > ${tmpdir}/statistics.txt"
+	check_results statistics.txt
+	;;
+    streamxformFordwardBackward)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformBackwardForward)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform -- --inverse vol001_mr_t0t1_warp.xform vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardPoly0)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform poly0.xform --inverse poly0.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardPoly1)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform poly1.xform --inverse poly1.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardPoly2)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform poly2.xform --inverse poly2.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardPoly3)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform poly3.xform --inverse poly3.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardPoly4)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform poly4.xform --inverse poly4.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformAffinePoly4)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform --affine-only poly4.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformAffineForward)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform --affine-only vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t1_points.xyzl"
+	check_results vol001_t1_points.xyzl
+	;;
+    streamxformAffineForwardBackward)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform --affine-only vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformFordwardBackwardTolerance)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform --inversion-tolerance 0.1 vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1_warp.xform > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformAffine)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform vol001_mr_t0t1.list > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    streamxformAffineFromTo)
+	run_eval "cat vol001_t0_points.xyzl | ${BINDIR}/streamxform --source-image vol001_mr_t0.hdr --target-image vol001_mr_t1.hdr vol001_mr_t0t1.list > ${tmpdir}/vol001_t0_points.xyzl"
+	check_results vol001_t0_points.xyzl
+	;;
+    symmetry_plane)
+	run sympl --sampling 1 --levels 4 --accuracy 0.1 --write-xform ${tmpdir}/xform --sinc --write-subtract ${tmpdir}/subtract.hdr --write-marked ${tmpdir}/marked.nii --write-mirror ${tmpdir}/mirror.nii -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters xform subtract.img marked.nii mirror.nii
+	;;
+    symmetry_planeThresh)
+	run sympl --sampling 1 --levels 4 --accuracy 0.1 --min-value -224 --max-value 176 --cubic --write-aligned ${tmpdir}/aligned.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters aligned.img
+	;;
+    symplx_Default)
+	run symplx --sampling 1 --levels 4 --accuracy 0.1 --write-xform ${tmpdir}/xform --sinc --write-subtract ${tmpdir}/subtract.hdr --write-marked ${tmpdir}/marked.nii --write-mirror ${tmpdir}/mirror.nii -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters xform subtract.img marked.nii mirror.nii
+	;;
+    symplx_Thresh)
+	run symplx --sampling 1 --levels 4 --accuracy 0.1 --min-value -224 --max-value 176 --cubic --write-aligned ${tmpdir}/aligned.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters aligned.img
+	;;
+    symplx_FixOffset)
+	run symplx --sampling 1 --levels 4 --accuracy 0.1 --fix-offset --cubic --write-aligned ${tmpdir}/aligned.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters aligned.img
+	;;
+    symplx_DefaultCUDA)
+	run symplx_cuda --sampling 1 --levels 4 --accuracy 0.1 --write-xform ${tmpdir}/xform --sinc --write-subtract ${tmpdir}/subtract.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters xform subtract.img
+	;;
+    symplx_ThreshCUDA)
+	run symplx_cuda --sampling 1 --levels 4 --accuracy 0.1 --min-value -224 --max-value 176 --cubic --write-aligned ${tmpdir}/aligned.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters aligned.img
+	;;
+    symplx_FixOffsetCUDA)
+	run symplx_cuda --sampling 1 --levels 4 --accuracy 0.1 --fix-offset --cubic --write-aligned ${tmpdir}/aligned.hdr -o ${tmpdir}/parameters cad001_ct.hdr
+	check_results parameters aligned.img
+	;;
+    ttestDefault)
+	run ttest -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestOneSided)
+	run ttest -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestSymmetric)
+	run ttest -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr --symmetric jacobian-01.nii jacobian-02.nii jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestLog)
+	run ttest --log -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestAbsLog)
+	run ttest --abs --log -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestInvert)
+	run ttest --invert -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestPaired)
+	run ttest --paired -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    ttestCrossCorrelation)
+	run ttest --cross-correlation -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/pvals.hdr jacobian-01.nii jacobian-02.nii jacobian-03.nii -- jacobian-04.nii jacobian-03.nii jacobian-02.nii 
+	check_results ttest.img pvals.img
+	;;
+    ttestZScores)
+	run ttest --zscores -o ${tmpdir}/zscores.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results zscores.img
+	;;
+    ttestMask)
+	run ttest --mask jacobian-mask.nii -o ${tmpdir}/ttest.hdr --tstats-file ${tmpdir}/tstats.hdr jacobian-01.nii jacobian-02.nii -- jacobian-03.nii jacobian-04.nii
+	check_results ttest.img tstats.img
+	;;
+    unsplitHdrAx)
+	run unsplit --axial -o ${tmpdir}/unsplit.hdr split_ax_0.hdr split_ax_1.hdr
+	check_results unsplit.hdr unsplit.img
+	;;
+    unsplitHdrSa)
+	run unsplit --sagittal -o ${tmpdir}/unsplit.hdr split_sa_0.hdr split_sa_1.hdr
+	check_results unsplit.hdr unsplit.img
+	;;
+    unsplitHdrCo)
+	run unsplit --coronal -o ${tmpdir}/unsplit.hdr split_co_0.hdr split_co_1.hdr split_co_2.hdr
+	check_results unsplit.hdr unsplit.img
+	;;
+    unsplitHdrNrrdAx)
+	run unsplit --axial -o ${tmpdir}/unsplit.nhdr split_ax_0.hdr split_ax_1.hdr
+	check_results unsplit.nhdr unsplit.raw
+	;;
+    unsplitHdrNrrdSa)
+	run unsplit --sagittal -o ${tmpdir}/unsplit.nhdr split_sa_0.hdr split_sa_1.hdr
+	check_results unsplit.nhdr unsplit.raw
+	;;
+    unsplitHdrNrrdCo)
+	run unsplit --coronal -o ${tmpdir}/unsplit.nhdr split_co_0.hdr split_co_1.hdr split_co_2.hdr
+	check_results unsplit.nhdr unsplit.raw
+	;;
+    unsplitNrrdNrrd)
+	run unsplit --axial -o ${tmpdir}/unsplit.nhdr split_ax_0.nhdr split_ax_1.nhdr split_ax_2.nhdr
+	check_results unsplit.nhdr unsplit.raw
+	;;
+    unsplitSlices)
+        run unsplit --axial -o ${tmpdir}/unsplit.nii phantom_ax_downsampled_slice_0.nii phantom_ax_downsampled_slice_1.nii phantom_ax_downsampled_slice_2.nii
+	check_results unsplit.nii
+	;;
+    unwarp_image_phantomDefault)
+        run unwarp_image_phantom magphan.xml spgr_magphan.nii ${tmpdir}/poly.xform
+	check_results poly.xform
+	;;
+    unwarp_image_phantomPoly)
+        run unwarp_image_phantom --poly magphan.xml spgr_magphan.nii ${tmpdir}/poly.xform
+	check_results poly.xform
+	;;
+    unwarp_image_phantomPolyDegree2)
+        run unwarp_image_phantom --poly --degree 2 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomSpacing)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --final-cp-spacing 80 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomSpacingInverse)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --final-cp-spacing 80 --fit-inverse magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomSpacingLevels)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --final-cp-spacing 80 --levels 3 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomSpacingDirect)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --no-fit-affine --final-cp-spacing 80 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDims)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --final-cp-dims 5,5,5 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDimsLevels)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --final-cp-dims 5,5,5 --levels 3 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDimsLevelsIterations)
+        run unwarp_image_phantom --spline --iterations-per-level 10 --final-cp-dims 5,5,5 --levels 3 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDimsLevelsThreshold)
+        run unwarp_image_phantom --spline --iterations-per-level 1 --rms-threshold 0.1 --final-cp-dims 5,5,5 --levels 3 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDimsLevelsIterationsThreshold)
+        run unwarp_image_phantom --spline --iterations-per-level 10 --rms-threshold 0.1 --final-cp-dims 5,5,5 --levels 3 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    unwarp_image_phantomDimsDefault)
+        run unwarp_image_phantom --spline --final-cp-dims 5,5,5 magphan.xml spgr_magphan.nii ${tmpdir}/ffd.xform
+	check_results ffd.xform
+	;;
+    volume_injection)
+	run volume_injection --recon-grid-path spgr_3t.hdr -o ${tmpdir}/injection.hdr --injection-kernel-sigma 0.5 --injection-kernel-radius 2 split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img
+	;;
+    volume_injectionReconGrid)
+	run volume_injection --recon-grid 49,65,35:3.75,3.75,3.75 -o ${tmpdir}/injection.nii --injection-kernel-sigma 0.5 --injection-kernel-radius 2 split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.nii
+	;;
+    volume_injectionReconGridOffset)
+	run volume_injection --recon-grid 48,64,34:3.75,3.75,3.75:1.875,1.875,1.875 -o ${tmpdir}/injection.nii --injection-kernel-sigma 0.5 --injection-kernel-radius 2 split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.nii
+	;;
+    volume_injectionIsotropic)
+	run volume_injection --recon-grid-path spgr_3t.hdr -o ${tmpdir}/injection.hdr --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --isotropic-injection split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img
+	;;
+    volume_injectionNoXform)
+	run volume_injection -o ${tmpdir}/injection.hdr --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --exclude-first-image spgr_3t.hdr -- split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img
+	;;
+    volume_injectionNoXformIsotropic)
+	run volume_injection -o ${tmpdir}/injection.hdr --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --isotropic-injection --exclude-first-image spgr_3t.hdr -- split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img
+	;;
+    volume_reconstructionFourthOrder)
+	run volume_reconstruction --recon-grid-path spgr_3t.hdr -o ${tmpdir}/reconstruction.hdr --linear --fourth-order-error --num-iterations 2 --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --isotropic-injection --write-injected-image ${tmpdir}/injection.hdr split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img reconstruction.img
+	;;
+    volume_reconstructionCubic)
+	run volume_reconstruction --recon-grid-path spgr_3t.hdr -o ${tmpdir}/reconstruction.hdr --cubic --num-iterations 2 --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --isotropic-injection --write-injected-image ${tmpdir}/injection.hdr split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img reconstruction.img
+	;;
+    volume_reconstructionNoXform)
+	run volume_reconstruction -o ${tmpdir}/reconstruction.hdr --linear --num-iterations 2 --injection-kernel-sigma 0.5 --injection-kernel-radius 2 --isotropic-injection --write-injected-image ${tmpdir}/injection.hdr --exclude-first-image spgr_3t.hdr -- split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results injection.img reconstruction.img
+	;;
+    volume_reconstructionBoxPSF)
+	run volume_reconstruction --recon-grid-path spgr_3t.hdr -o ${tmpdir}/reconstruction.hdr --deblurring box --psf 0.9375,0.9375,1.25 --num-iterations 2 --injection-kernel-sigma 0.5 --injection-kernel-radius 2 split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results reconstruction.img
+	;;
+    volume_reconstructionGaussianPSF)
+	run volume_reconstruction --recon-grid-path spgr_3t.hdr -o ${tmpdir}/reconstruction.hdr --deblurring gaussian --psf 0.9375,0.9375,1.25 --num-iterations 2 --injection-kernel-sigma 0.5 --injection-kernel-radius 2 split_ax_0.hdr split_ax_01.xform split_ax_1.hdr
+	check_results reconstruction.img
+	;;
+    warpSingleLevel)
+	run warp --fast --exploration 8 --grid-spacing 160 --accuracy 1 --no-adaptive-fix -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpSingleLevelExact)
+	run warp --fast --exploration 8 --grid-spacing 180 --exact-spacing --accuracy 1 --sampling 3 --no-adaptive-fix -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpInverseConsistentCC)
+	run warp --fast --exploration 8 --grid-spacing 80 --accuracy 1 --ncc --ic-weight 1e-2 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpMultiLevel)
+	run warp --fast --exploration 8 --grid-spacing 160 --accuracy 1 --refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpMultiLevelMatchHistograms)
+	run warp --fast --exploration 8 --match-histograms --msd --grid-spacing 160 --accuracy 1 --refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpMultiLevelDeltaFThreshold)
+	run warp --fast --exploration 8 --delta-f-threshold 0.01 --msd --grid-spacing 160 --accuracy 1 --refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpMultiLevelExact)
+	run warp --fast --exploration 8 --grid-spacing 160 --exact-spacing --accuracy 1 --refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpDelayRefine)
+	run warp --fast --exploration 12 --grid-spacing 160 --accuracy 2 --refine 1 --delay-refine --sampling 6 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpEnergy)
+	run warp --fast --exploration 8 --grid-spacing 160 --accuracy 1 --refine 1 --energy-weight 1e-1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpEnergyRelax)
+	run warp --fast --exploration 8 --grid-spacing 160 --accuracy 1 --refine 1 --energy-weight 1e-1 --relax 1e-2 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpJacobian)
+	export CMTK_NUM_THREADS=1
+	run warp --fast --exploration 12 --grid-spacing 160 --accuracy 2 --refine 1 --jacobian-weight 1e-1 --sampling 12 --omit-original-data -o ${tmpdir} vol001_mr_t0t1.list
+	unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpRigidity)
+	run warp --fast --exploration 12 --grid-spacing 160 --accuracy 2 --refine 1 --rigidity-weight 1e-1 --sampling 12 --omit-original-data -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpLabels)
+	run warp --fast --exploration 8 --grid-spacing 90 --accuracy 1 --refine 1 --class-ref label --class-flt label -o ${tmpdir} --initial parc1_parc2_9dof.xform parc1.hdr parc2.hdr
+	check_results registration
+	;;
+    warpxSingleLevel)
+	run warpx --fast --max-stepsize 8 --grid-spacing 160 --min-stepsize 1 --no-adaptive-fix -o ${tmpdir} --write-itk-xform ${tmpdir}/xform.tfm vol001_mr_t0t1.list
+	check_results registration xform.tfm
+	;;
+    warpxSingleLevelExact)
+	run warpx --fast --max-stepsize 8 --grid-spacing 180 --exact-spacing --min-stepsize 1 --sampling 3 --no-adaptive-fix -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpxInverseConsistentCC)
+        export CMTK_NUM_THREADS=1
+	run warpx --fast --max-stepsize 8 --grid-spacing 80 --min-stepsize 1 --ncc --inverse-consistency-weight 1e-2 -o ${tmpdir} vol001_mr_t0t1.list
+        unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpxMultiLevel)
+	run warpx --pad-flt -10000 --write-reformatted ${tmpdir}/reformat.nii --fast --max-stepsize 8 --grid-spacing 160 --min-stepsize 1 --grid-refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration reformat.nii
+	;;
+    warpxMultiLevelMatchHistograms)
+        export CMTK_NUM_THREADS=1
+	run warpx --fast --max-stepsize 8 --match-histograms --msd --grid-spacing 160 --min-stepsize 1 --grid-refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpxMultiLevelDeltaFThreshold)
+        export CMTK_NUM_THREADS=1
+	run warpx --fast --max-stepsize 8 --delta-f-threshold 0.01 --msd --grid-spacing 160 --min-stepsize 1 --grid-refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpxMultiLevelExact)
+	run warpx --fast --max-stepsize 8 --grid-spacing 160 --exact-spacing --min-stepsize 1 --grid-refine 1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpxDelayRefine)
+	run warpx --fast --max-stepsize 12 --grid-spacing 160 --min-stepsize 2 --grid-refine 1 --delay-refine --sampling 6 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpxEnergy)
+	run warpx --fast --max-stepsize 8 --grid-spacing 160 --min-stepsize 1 --grid-refine 1 --smoothness-constraint-weight 1e-1 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpxEnergyRelax)
+	run warpx --fast --max-stepsize 8 --grid-spacing 160 --min-stepsize 1 --grid-refine 1 --smoothness-constraint-weight 1e-1 --constraint-relaxation-factor 1e-2 -o ${tmpdir} vol001_mr_t0t1.list
+	check_results registration
+	;;
+    warpxJacobian)
+	export CMTK_NUM_THREADS=1
+	run warpx --fast --max-stepsize 12 --grid-spacing 160 --min-stepsize 2 --grid-refine 1 --jacobian-constraint-weight 1e-1 --sampling 12 --omit-original-data -o ${tmpdir} vol001_mr_t0t1.list
+	unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpxJacobianUnfold)
+	export CMTK_NUM_THREADS=1
+	run warpx --fast --relax-to-unfold --max-stepsize 12 --grid-spacing 160 --min-stepsize 2 --grid-refine 1 --jacobian-constraint-weight 1e-1 --sampling 12 --omit-original-data -o ${tmpdir} vol001_mr_t0t1.list
+	unset CMTK_NUM_THREADS
+	check_results registration
+	;;
+    warpxLabels)
+	run warpx --fast --max-stepsize 8 --grid-spacing 90 --min-stepsize 1 --grid-refine 1 --class-ref label --class-flt label -o ${tmpdir} --initial parc1_parc2_9dof.xform parc1.hdr parc2.hdr
+	check_results registration
+	;;
+    vtkxform)
+        run_eval "${BINDIR}/vtkxform vol001_mr_t0t1.list < polydata_ascii.vtk > ${tmpdir}/output.vtk"
+	check_results output.vtk
+	;;
+    vtkxformInverse)
+        run_eval "${BINDIR}/vtkxform -- --inverse vol001_mr_t0t1.list < polydata_ascii.vtk > ${tmpdir}/output.vtk"
+	check_results output.vtk
+	;;
+    xform2dfieldWarpNrrd)
+	run xform2dfield -v ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0t1_warp.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2dfieldWarpNifti)
+	run xform2dfield -v ${tmpdir}/dfield.nii vol001_mr_t0_crop.hdr vol001_mr_t0t1_warp.xform
+	check_results dfield.nii
+	;;
+    xform2dfieldWarpNiftiFSL)
+	run xform2dfield --target-image-fsl ncanda_t1_jacobian.nii.gz --output-absolute ${tmpdir}/dfield.nii vol001_mr_t0_crop.hdr vol001_mr_t0t1_warp.xform
+	check_results dfield.nii
+	;;
+    xform2dfieldWarpNiftiHdr)
+	run xform2dfield -v ${tmpdir}/dfield.img vol001_mr_t0_crop.hdr vol001_mr_t0t1_warp.xform
+	check_results dfield.hdr dfield.img
+	;;
+    xform2dfieldAffineNrrd)
+	run xform2dfield -v ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2dfieldDownsampleXYZNrrd)
+	run xform2dfield -v --downsample 4,4,2 ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2dfieldDownsampleXNrrd)
+	run xform2dfield -v --downsample 4 ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2dfieldConcatNrrd)
+	run xform2dfield -v ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform vol001_mr_t0t1_warp.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2dfieldInverseNrrd)
+	run xform2dfield -v ${tmpdir}/dfield.nhdr vol001_mr_t0_crop.hdr vol001_mr_t0_crop.xform --inverse vol001_mr_t0t1_warp.xform
+	check_results dfield.nhdr dfield.raw
+	;;
+    xform2scalarAffine)
+	run xform2scalar --float --output ${tmpdir}/magnitude.nii vol001_mr_t0.hdr vol001_mr_t0t1.list
+	check_results magnitude.nii
+	;;
+    xform2scalarAffineDoubleY)
+	run xform2scalar --mode x-component --output ${tmpdir}/xcomponent.nii vol001_mr_t0.hdr vol001_mr_t0t1.list
+	check_results xcomponent.nii
+	;;
+    xform2scalarWarp)
+	run xform2scalar --float --output ${tmpdir}/magnitude.nii vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform
+	check_results magnitude.nii
+	;;
+    xform2scalarWarpInverseError)
+	run xform2scalar --float --output ${tmpdir}/magnitude.nii vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform --inverse vol001_mr_t0t1_warp.xform
+	check_results magnitude.nii
+	;;
+    xform2scalarWarpOnly)
+	run xform2scalar --warp-only --float --output ${tmpdir}/magnitude.nii vol001_mr_t0.hdr vol001_mr_t0t1_warp.xform
+	check_results magnitude.nii
+	;;
+    xform2scalarDfield)
+	run xform2scalar --float --output ${tmpdir}/magnitude.nii parc1.hdr parc1_parc2_dfield.nrrd
+	check_results magnitude.nii
+	;;
+    vol2csvLabels)
+	run vol2csv -o ${tmpdir}/volumes.csv --labels-file sri24_ventricles.txt ncanda_t1_ventricles.nii ncanda_t1_pve_0.nii ncanda_t1_pve_1.nii ncanda_t1_pve_2.nii
+	check_results volumes.csv
+	;;
+    vol2csvLabelsNoBackground)
+	run vol2csv -o ${tmpdir}/volumes.csv --labels-file sri24_ventricles_noBG.txt ncanda_t1_ventricles.nii ncanda_t1_pve_0.nii ncanda_t1_pve_1.nii ncanda_t1_pve_2.nii
+	check_results volumes.csv
+	;;
+    vol2csvDensityLabels)
+	run vol2csv -o ${tmpdir}/volumes.csv --density-labels CSF,GM,WM ncanda_t1_ventricles.nii ncanda_t1_pve_0.nii ncanda_t1_pve_1.nii ncanda_t1_pve_2.nii
+	check_results volumes.csv
+	;;
+    vol2csvScale)
+	run vol2csv -o ${tmpdir}/volumes.csv --pixel-scale-image ncanda_t1_jacobian.nii ncanda_t1_ventricles.nii ncanda_t1_pve_0.nii ncanda_t1_pve_1.nii ncanda_t1_pve_2.nii
+	check_results volumes.csv
+	;;
+    vol2csvScaleGlobal)
+	run vol2csv -o ${tmpdir}/volumes.csv --pixel-scale-factor 2 ncanda_t1_ventricles.nii ncanda_t1_pve_0.nii ncanda_t1_pve_1.nii ncanda_t1_pve_2.nii
+	check_results volumes.csv
+	;;
+    help_film)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/film --help > ${tmpdir}/film.help"
+	check_results film.help
+	;;
+    help_all_film)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/film --help-all > ${tmpdir}/film.help"
+	check_results film.help
+	;;
+    xml_film)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/film --xml | ${sed} '/<version>/{ N; s/^.*$/<version>/ }' > ${tmpdir}/film.xml"
+	check_results film.xml
+	;;
+    xml_gmm)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/gmm --xml | ${sed} '/<version>/{ N; s/^.*$/<version>/ }' > ${tmpdir}/gmm.xml"
+	check_results gmm.xml
+	;;
+    xml_levelset)
+        run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/levelset --xml | ${sed} '/<version>/{ N; s/^.*$/<version>/ }' > ${tmpdir}/levelset.xml"
+	check_results levelset.xml
+	;;
+    xml_mrbias)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/mrbias --xml | ${sed} '/<version>/{ N; s/^.*$/<version>/ }' > ${tmpdir}/mrbias.xml"
+	check_results mrbias.xml
+	;;
+    xml_registration)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/registration --xml | ${sed} '/<version>/{ N; s/^.*$/<version>/ }' > ${tmpdir}/registration.xml"
+	check_results registration.xml
+	;;
+    wiki_film)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/film --wiki > ${tmpdir}/film.wiki"
+	check_results film.wiki
+	;;
+    wiki_levelset)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/levelset --wiki > ${tmpdir}/levelset.wiki"
+	check_results levelset.wiki
+	;;
+    wiki_mrbias)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/mrbias --wiki > ${tmpdir}/mrbias.wiki"
+	check_results mrbias.wiki
+	;;
+    wiki_registration)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/registration --wiki > ${tmpdir}/registration.wiki"
+	check_results registration.wiki
+	;;
+    man_film)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/film --man | fgrep -v .TH > ${tmpdir}/film.man"
+	check_results film.man
+	;;
+    man_levelset)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/levelset --man | fgrep -v .TH > ${tmpdir}/levelset.man"
+	check_results levelset.man
+	;;
+    man_mrbias)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/mrbias --man | fgrep -v .TH > ${tmpdir}/mrbias.man"
+	check_results mrbias.man
+	;;
+    man_registration)
+	run_eval "CMTK_CONSOLE_LINE_WIDTH=100 ${BINDIR}/registration --man | fgrep -v .TH > ${tmpdir}/registration.man"
+	check_results registration.man
+	;;
+    *)
+	exit 2
+	;;
+esac
+
+if [ "${tmpdir}" != "" ]; then
+    rm -rf ${tmpdir}
+fi

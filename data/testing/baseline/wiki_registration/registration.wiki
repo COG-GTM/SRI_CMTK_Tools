@@ -1,0 +1,152 @@
+== Title ==
+
+Rigid and affine registration
+
+== Description ==
+
+This program performs rigid and affine image registration using multi-resolution optimization of voxel-based image similarity measures.
+
+== Syntax ==
+
+: <tt>[options] ReferenceImage FloatingImage </tt>
+
+where
+
+; <tt>ReferenceImage</tt> : Reference (fixed) image path
+
+; <tt>FloatingImage</tt> : Floating (moving) image path
+
+== List of Supported Options ==
+
+=== Global Toolkit Options (these are shared by all CMTK tools) ===
+
+; <tt>--help</tt> : Write list of basic command line options to standard output.
+
+; <tt>--help-all</tt> : Write complete list of basic and advanced command line options to standard output.
+
+; <tt>--wiki</tt> : Write list of command line options to standard output in MediaWiki markup.
+
+; <tt>--man</tt> : Write man page source in 'nroff' markup to standard output.
+
+; <tt>--xml</tt> : Write command line syntax specification in XML markup (for Slicer integration).
+
+; <tt>--version</tt> : Write toolkit version to standard output.
+
+; <tt>--echo</tt> : Write the current command line to standard output.
+
+; <tt>--verbose-level</tt> <tt><integer></tt> : Set verbosity level.
+
+; <tt>--verbose</tt>, <tt>-v</tt> : Increment verbosity level by 1 (deprecated; supported for backward compatibility).
+
+; <tt>--threads</tt> <tt><integer></tt> : Set maximum number of parallel threads (for POSIX threads and OpenMP).
+
+=== Automation Options ===
+
+; <tt>--auto-multi-levels</tt> <tt><integer></tt> : Automatic optimization and resolution parameter generation for <n> levels '''[Default: 0]'''
+
+=== Optimization settings ===
+
+; <tt>--exploration</tt> <tt><double></tt>, <tt>-e</tt> <tt><double></tt> : Exploration [initial optimizer step size] '''[Default: 8]'''
+
+; <tt>--accuracy</tt> <tt><double></tt>, <tt>-a</tt> <tt><double></tt> : Accuracy [final optimizer step size] '''[Default: 0.1]'''
+
+; <tt>--stepfactor</tt> <tt><double></tt>, <tt>-f</tt> <tt><double></tt> : Factor for search step size reduction. Must be > 0.0 and < 1.0 '''[Default: 0.5]'''
+
+; <tt>--delta-f-threshold</tt> <tt><double></tt> : Optional threshold to terminate optimization (level) if relative change of target function drops below this value. '''[Default: 0]'''
+
+=== Image resolution parameters ===
+
+; <tt>--sampling</tt> <tt><double></tt>, <tt>-s</tt> <tt><double></tt> : Image sampling (finest resampled image resolution) '''[Default: 1]'''
+
+; <tt>--coarsest</tt> <tt><double></tt> : Upper limit for image sampling in multiresolution hierarchy '''[Default: -1]'''
+
+; <tt>--omit-original-data</tt> : Do not use original data in full resolution, omit final stage in multiresolution hierarchy, thus reducing computation time.
+
+=== Transformation parameters ===
+
+; <tt>--dofs</tt> <tt><integer>[,<integer>,...]</tt> : Add number of degrees of freedom [can be repeated]
+
+; <tt>--dofs-final</tt> <tt><integer>[,<integer>,...]</tt> : Add number of degrees of freedom for final level only [can be repeated]
+
+; <tt>--no-switch</tt>, <tt>-n</tt> : Do not auto-switch reference and floating image for improved computational performance
+
+; <tt>--initxlate</tt>, <tt>-i</tt> : Initialized transformation by translating floating image FOV center onto reference image FOV center
+
+; <tt>--initial</tt> <tt><transformation-path></tt> : Initialize transformation from given path '''[Default: NONE]'''
+
+; <tt>--initial-is-inverse</tt> : Invert initial transformation before initializing registration
+
+=== Image data ===
+
+; <tt>--registration-metric</tt> : Registration metric for motion estimation by image-to-image registration.Supported values: "<tt>nmi</tt>", "<tt>mi</tt>", "<tt>cr</tt>", "<tt>msd</tt>", "<tt>ncc</tt>", where the default is "nmi", or use one of the following:
+:; <tt>--nmi</tt> : Normalized Mutual Information metric '''[This is the default]'''
+:; <tt>--mi</tt> : Standard Mutual Information metric
+:; <tt>--cr</tt> : Correlation Ratio metric
+:; <tt>--msd</tt> : Mean Squared Difference metric
+:; <tt>--ncc</tt> : Normalized Cross Correlation metric
+
+; <tt>--match-histograms</tt> : Match floating image histogram to reference image histogram.
+
+=== Reference Image Preprocessing ===
+
+; <tt>--class-ref</tt> <tt><string></tt> : Data class: grey (default) or label '''[Default: NONE]'''
+
+; <tt>--pad-ref</tt> <tt><double></tt> : Padding value '''[Default: disabled]'''
+
+; <tt>--thresh-min-ref</tt> <tt><double></tt> : Minimum value truncation threshold '''[Default: disabled]'''
+
+; <tt>--thresh-max-ref</tt> <tt><double></tt> : Maximum value truncation threshold '''[Default: disabled]'''
+
+; <tt>--prune-histogram-ref</tt> <tt><integer></tt> : Number of bins for histogram-based pruning '''[Default: disabled]'''
+
+; <tt>--histogram-equalization-ref</tt> : Apply histogram equalization
+
+; <tt>--sobel-filter-ref</tt> : Apply Sobel edge detection filter
+
+; <tt>--crop-index-ref</tt> <tt><string></tt> : Cropping region in pixel index coordinates [parsed as %d,%d,%d,%d,%d,%d for i0,j0,k0,i1,j1,k1] '''[Default: NONE]'''
+
+; <tt>--crop-world-ref</tt> <tt><string></tt> : Cropping region in world coordinates [parsed as %f,%f,%f,%f,%f,%f for x0,y0,z0,x1,y1,z1] '''[Default: NONE]'''
+
+=== Floating Image Preprocessing ===
+
+; <tt>--class-flt</tt> <tt><string></tt> : Data class: grey (default) or label '''[Default: NONE]'''
+
+; <tt>--pad-flt</tt> <tt><double></tt> : Padding value '''[Default: disabled]'''
+
+; <tt>--thresh-min-flt</tt> <tt><double></tt> : Minimum value truncation threshold '''[Default: disabled]'''
+
+; <tt>--thresh-max-flt</tt> <tt><double></tt> : Maximum value truncation threshold '''[Default: disabled]'''
+
+; <tt>--prune-histogram-flt</tt> <tt><integer></tt> : Number of bins for histogram-based pruning '''[Default: disabled]'''
+
+; <tt>--histogram-equalization-flt</tt> : Apply histogram equalization
+
+; <tt>--sobel-filter-flt</tt> : Apply Sobel edge detection filter
+
+; <tt>--crop-index-flt</tt> <tt><string></tt> : Cropping region in pixel index coordinates [parsed as %d,%d,%d,%d,%d,%d for i0,j0,k0,i1,j1,k1] '''[Default: NONE]'''
+
+; <tt>--crop-world-flt</tt> <tt><string></tt> : Cropping region in world coordinates [parsed as %f,%f,%f,%f,%f,%f for x0,y0,z0,x1,y1,z1] '''[Default: NONE]'''
+
+=== Output parameters ===
+
+; <tt>--outlist</tt> <tt><string></tt>, <tt>-o</tt> <tt><string></tt> : Output path for final transformation '''[Default: NONE]'''
+
+; <tt>--out-matrix</tt> <tt><string></tt> : Output path for final transformation in matrix format '''[Default: NONE]'''
+
+; <tt>--out-parameters</tt> <tt><string></tt> : Output path for final transformation in plain parameter list format '''[Default: NONE]'''
+
+; <tt>--protocol</tt> <tt><string></tt>, <tt>-p</tt> <tt><string></tt> : Optimization protocol output file name '''[Default: NONE]'''
+
+; <tt>--time</tt> <tt><string></tt>, <tt>-t</tt> <tt><string></tt> : Computation time statistics output file name '''[Default: NONE]'''
+
+=== Import Results into Slicer ===
+
+; <tt>--out-itk</tt> <tt><transformation-path></tt> : Output path for final transformation in ITK format '''[Default: NONE]'''
+
+; <tt>--write-reformatted</tt> <tt><image-path></tt> : Write reformatted floating image. '''[Default: NONE]'''
+
+=== Image/Transformation Database ===
+
+; <tt>--db</tt> <tt><string></tt> : Path to image/transformation database that should be updated with the new registration and/or reformatted image. '''[Default: NONE]'''
+
+

@@ -1,0 +1,63 @@
+#!/bin/sh
+
+##
+##  Copyright 2010-2012, 2014 SRI International
+##
+##  This file is part of the Computational Morphometry Toolkit.
+##
+##  http://www.nitrc.org/projects/cmtk/
+##
+##  The Computational Morphometry Toolkit is free software: you can
+##  redistribute it and/or modify it under the terms of the GNU General Public
+##  License as published by the Free Software Foundation, either version 3 of
+##  the License, or (at your option) any later version.
+##
+##  The Computational Morphometry Toolkit is distributed in the hope that it
+##  will be useful, but WITHOUT ANY WARRANTY; without even the implied
+##  warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##  GNU General Public License for more details.
+##
+##  You should have received a copy of the GNU General Public License along
+##  with the Computational Morphometry Toolkit.  If not, see
+##  <http://www.gnu.org/licenses/>.
+##
+##  $Revision$
+##
+##  $LastChangedDate$
+##
+##  $LastChangedBy$
+##
+
+##
+## SYNOPSIS
+##
+##  This script can be run from anywhere and will create
+##  all officially distributed MacOS packages, each in
+##  its own subdirectory of the current working directory.
+##
+
+SOURCEDIR=`dirname $0`
+SOURCEDIR=`dirname ${SOURCEDIR}`
+SOURCEDIR=`cd ${SOURCEDIR}; pwd`
+
+SDKs="$*"
+if [ "${SDKs}" == "" ]; then
+    SDKs="OSX-10.4-i386 OSX-10.5-x86_64 OSX-10.6-x86_64 OSX-10.6-x86_64-CUDA gcc4.7-macports-OSX-10.6 gcc4.8-macports-OSX-10.6"
+fi
+
+/opt/local/bin/svn update source
+for sdk in ${SDKs}; do
+    if [ ! -d ${sdk} ]; then
+	mkdir ${sdk}
+	pushd ${sdk}
+	/opt/local/bin/cmake -C ${SOURCEDIR}/config/package.cmake -C ${SOURCEDIR}/config/${sdk}.cmake ${SOURCEDIR}
+    else
+	pushd ${sdk}
+	cmake .
+    fi
+    
+    make -j2 package
+    /opt/local/bin/cpack -G PackageMaker
+    popd
+done
+

@@ -1,0 +1,26 @@
+Selected model parameters:
+	age
+INFORMATION: Ignoring parameter #1
+NParameters = 2
+
+
+Design Matrix: 
+     age	   CONST	
+   20.00	    1.00	
+   30.00	    1.00	
+   40.00	    1.00	
+   50.00	    1.00	
+
+
+Singular values:
+	73.5094	0.608376
+
+
+Parameter correlation matrix:
+1.00	0.00	
+0.00	0.00	
+
+
+Parameter normalization factors:
+0	11.180340
+2	1.000000

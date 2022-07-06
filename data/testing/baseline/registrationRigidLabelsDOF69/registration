@@ -1,0 +1,13 @@
+! TYPEDSTREAM 2.4
+
+registration {
+	reference_study "parc1.hdr"
+	floating_study "parc2.hdr"
+	affine_xform {
+		xlate 0 0 0 
+		rotate 9.260396395 1.653642213 -0.9508442727 
+		scale 0.9331632653 0.9321428571 0.9897959184 
+		shear 0 0 0 
+		center 98 98 98 
+	}
+}
