@@ -1,7 +1,7 @@
 ##
 ##  Copyright 1997-2010 Torsten Rohlfing
 ##
-##  Copyright 2004-2014 SRI International
+##  Copyright 2004-2014, 2022 SRI International
 ##
 ##  Copyright 2015, 2016 Google, Inc.
 ##
@@ -35,7 +35,7 @@
 ## It may have evolved away since then, however.
 ##
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 SET(CMAKE_LEGACY_CYGWIN_WIN32 0) # Remove when CMake >= 2.8.4 is required
 
 IF(COMMAND cmake_policy)
@@ -49,6 +49,8 @@ SET(CMTK_VERSION_MINOR "3")
 SET(CMTK_VERSION_PATCH "1p2")
 
 SET(CMTK_VERSION_STRING "${CMTK_VERSION_MAJOR}.${CMTK_VERSION_MINOR}.${CMTK_VERSION_PATCH}")
+
+SET(CMAKE_CXX_STANDARD 14)
 
 #-----------------------------------------------------------------------------
 # Test for some required system information.

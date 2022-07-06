@@ -1,6 +1,6 @@
 /*
 //
-//  Copyright 2004-2014 SRI International
+//  Copyright 2004-2014, 2022 SRI International
 //
 //  Copyright 1997-2009 Torsten Rohlfing
 //
@@ -36,6 +36,7 @@
 #include <cmtkconfig.h>
 
 #include <IO/cmtkImageFileDICOM.h>
+#include <IO/cmtkImageOperationXMLOptions.h>
 
 #include <System/cmtkSmartPtr.h>
 #include <System/cmtkSmartConstPtr.h>
@@ -87,13 +88,16 @@ public:
 
   /// Match new image file against this volume stack.
   bool Match ( const ImageFileDICOM& newImage /*!< New image - test whether this belongs with the ones already in this stack.*/, 
-	       const Types::Coordinate numericalTolerance = 0, /*!< Numerical comparison tolerance; values with absolute difference less than this threshold are considered equal. */
-	       const bool disableCheckOrientation = false /*!< Flag for disabling the checking of image orientation vectors.*/,
-	       const bool ignoreAcquisitionNumber = false /*!< When this flag is set, the AcquisitionNumber DICOM tag is ignore for matching images*/ ) const;
-  
+           const Types::Coordinate numericalTolerance = 0, /*!< Numerical comparison tolerance; values with absolute difference less than this threshold are considered equal. */
+           const bool disableCheckOrientation = false /*!< Flag for disabling the checking of image orientation vectors.*/,
+           const bool ignoreAcquisitionNumber = false /*!< When this flag is set, the AcquisitionNumber DICOM tag is ignore for matching images*/ ) const;
+
   /// Write XML sidecar file.
   void WriteXML( const std::string& name /*!< Sidecar XML file name. */, const cmtk::UniformVolume& volume /*!< Previously written image volume - provides information about coordinate system etc. */,
-		 const bool includeIdentifiers = false /*!< If this is set, protected "identifiers" such as device serial numbers will also be included in the XML output.*/ ) const;
+         const ImageOperationXMLOptions& outputOptions /*!< If this is set, protected "identifiers" such as device serial numbers will also be included in the XML output.*/ ) const;
+
+  void WriteXML( const std::string& name /*!< Sidecar XML file name. */, const cmtk::UniformVolume& volume /*!< Previously written image volume - provides information about coordinate system etc. */,
+         const bool includeIdentifiers = false /*!< If this is set, protected "identifiers" such as device serial numbers will also be included in the XML output.*/ ) const;
 
   /// Write to image file.
   cmtk::UniformVolume::SmartConstPtr WriteImage ( const std::string& name /*!< File name and path for new image.*/, const Self::EmbedInfoEnum embedInfo /*!< Flag for selecting information embedded into image description.*/  ) const;
