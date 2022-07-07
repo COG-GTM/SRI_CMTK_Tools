@@ -467,7 +467,7 @@ namespace cmtk
     }
 
     cmtk::UniformVolume::SmartConstPtr
-    ImageStackDICOM::WriteImage(const std::string &fname, const Self::EmbedInfoEnum embedInfo) const
+    ImageStackDICOM::WriteImage(const std::string &fname, const Self::EmbedInfoEnum embedInfo, const bool dryRun) const
     {
         const ImageFileDICOM *first = this->front();
 
@@ -586,9 +586,19 @@ namespace cmtk
                 }
             }
 
-            VolumeIO::Write(*volume, fname.c_str());
-            DebugOutput(1).GetStream().printf("\nOutput file:%s\nImage size: %3dx%3dx%3d pixels\nPixel size: %.4fx%.4fx%.4f mm\n\n",
-                                              fname.c_str(), volume->m_Dims[0], volume->m_Dims[1], volume->m_Dims[2], volume->m_Delta[0], volume->m_Delta[1], volume->m_Delta[2]);
+            if (!dryRun)
+            {
+                VolumeIO::Write(*volume, fname.c_str());
+                DebugOutput(1).GetStream().printf(
+                    "\nOutput file:%s\nImage size: %3dx%3dx%3d pixels\nPixel size: %.4fx%.4fx%.4f mm\n\n",
+                    fname.c_str(), volume->m_Dims[0], volume->m_Dims[1], volume->m_Dims[2], volume->m_Delta[0], volume->m_Delta[1], volume->m_Delta[2]);
+            }
+            else
+            {
+                DebugOutput(1).GetStream().printf(
+                    "\nImage size: %3dx%3dx%3d pixels\nPixel size: %.4fx%.4fx%.4f mm\n\n",
+                    volume->m_Dims[0], volume->m_Dims[1], volume->m_Dims[2], volume->m_Delta[0], volume->m_Delta[1], volume->m_Delta[2]);
+            }
         }
         else
         {
