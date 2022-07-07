@@ -136,6 +136,7 @@ typedef enum
 
 SortKeyEnum SortFiles = SORT_INSTANCE_NUMBER;
 
+bool WriteImage = true;
 bool WriteXML = false;
 bool StrictXML = false;
 bool IncludeIdentifiers = false;
@@ -278,13 +279,17 @@ int VolumeList::WriteVolumes()
             // if there's a "number" tag, get rid of it.
             std::string uniquePath = PutNumberAndSanitize(it->first, "");
 
-            cmtk::UniformVolume::SmartConstPtr volume = it->second[0]->WriteImage(uniquePath.c_str(), EmbedInfo);
+            cmtk::UniformVolume::SmartConstPtr volume = it->second[0]->WriteImage(uniquePath.c_str(), EmbedInfo, !WriteImage);
 
             if (volume)
             {
                 if (WriteXML)
                 {
-                    it->second[0]->WriteXML((uniquePath + ".xml").c_str(), *volume, xmlOptions);
+                    std::string fileExt(".xml");
+                    if (xmlOptions.m_includeNDARIdentifiers) {
+                        fileExt = ".ndar" + fileExt;
+                    }
+                    it->second[0]->WriteXML((uniquePath + fileExt).c_str(), *volume, xmlOptions);
                 }
             }
             else
@@ -529,6 +534,7 @@ int doMain(const int argc, const char *argv[])
                                                                "%T (RawDataType - vendor-specific, currently GE MRI only)");
 
         cl.AddSwitch(Key('x', "xml"), &WriteXML, true, "Write XML sidecar file for each created image.");
+        cl.AddSwitch(Key('d', "xml-only"), &WriteImage, false, "Do not write image file, only write the XML sidecar file.");
         cl.AddSwitch(Key("strict-xml"), &StrictXML, true, "Use strict XML when writing sidecar file.");
         cl.AddSwitch(Key("include-identifiers"), &IncludeIdentifiers, true, "Include potentially protected identifying information (e.g., UIDs, device serial numbers, dates) in the created XML sidecar files.");
         cl.AddSwitch(Key("include-ndar"), &IncludeNDARIdentifiers, true, "Include additional NDAR identifiers");
