@@ -247,7 +247,6 @@ namespace cmtk
       DcmObject *pObj = NULL;
       if (this->m_Document->getValue(tagKey, pTmpInt, pObj) > 0) {
         this->m_TagToStringMap[tagKey] = std::to_string(*pTmpInt);
-        std::cout << "[" << std::hex << tagKey.getGroup() << "," << tagKey.getElement() << std::dec << "] Value: " << this->m_TagToStringMap[tagKey] << std::endl;
       }
     }
   }
@@ -271,7 +270,6 @@ namespace cmtk
       [&delim](std::string &x, std::string&y) {
         return x.empty() ? y : x + delim + y;
       });
-    // std::cout << "AcquisitionMatrix: " << this->m_TagToStringMap[DCM_AcquisitionMatrix] << std::endl;
   }
 
   void
