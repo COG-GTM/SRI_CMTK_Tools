@@ -40,6 +40,7 @@
 #include <dcmtk/dcmimgle/diutils.h>
 
 #include <sstream>
+#include <string>
 #include <numeric>
 
 namespace cmtk
@@ -237,18 +238,36 @@ namespace cmtk
   void
   ImageFileDICOM::DoFOV()
   {
-    const std::vector<DcmTagKey> intTagKeys = {
-      DCM_Columns, DCM_Rows
+    const DcmTagKey intTagKeys[] = {
+      DCM_Columns, DCM_Rows,
+
+      DcmTagKey(0, 0)
     };
 
-    for (auto& tagKey: intTagKeys)
+    for (size_t tagIdx = 0; (intTagKeys[tagIdx].getGroup() != 0) && (intTagKeys[tagIdx].getElement() != 0); ++tagIdx)
     {
+      const DcmTagKey& tagKey = intTagKeys[tagIdx];
       const Uint16 *pTmpInt = NULL;
       DcmObject *pObj = NULL;
       if (this->m_Document->getValue(tagKey, pTmpInt, pObj) > 0) {
-        this->m_TagToStringMap[tagKey] = std::to_string(*pTmpInt);
+        std::ostringstream s;
+        s << *pTmpInt;
+        this->m_TagToStringMap[tagKey] = std::string(s.str());
       }
     }
+  }
+
+  template<typename InputIt>
+  std::string join(InputIt first, InputIt last, const std::string& separator = ",")
+  {
+    std::ostringstream result;
+    if (first != last) {
+      result << *first;
+      while (++first != last) {
+        result << separator << *first;
+      }
+    }
+    return result.str();
   }
 
   void
@@ -261,15 +280,13 @@ namespace cmtk
     {
       if (this->m_Document->getValue(DCM_AcquisitionMatrix, tmpDbl, dim, pObj) > 0) 
       {
-        vAcquisitionMatrix.emplace_back(std::to_string(tmpDbl));
+        std::ostringstream s;
+        s << tmpDbl;
+        vAcquisitionMatrix.push_back(std::string(s.str()));
       }
     }
 
-    std::string delim("\\");
-    this->m_TagToStringMap[DCM_AcquisitionMatrix] = std::accumulate(vAcquisitionMatrix.begin(), vAcquisitionMatrix.end(), std::string(),
-      [&delim](std::string &x, std::string&y) {
-        return x.empty() ? y : x + delim + y;
-      });
+    this->m_TagToStringMap[DCM_AcquisitionMatrix] = join(vAcquisitionMatrix.begin(), vAcquisitionMatrix.end(), "\\");
   }
 
   void
