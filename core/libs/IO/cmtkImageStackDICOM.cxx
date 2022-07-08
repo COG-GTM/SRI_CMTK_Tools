@@ -234,6 +234,7 @@ namespace cmtk
 
         // convenience pointer to first image in series
         const ImageFileDICOM *firstImage = this->front();
+        std::string modality = firstImage->GetTagValue(DCM_Modality);
 
         if (outputOptions.m_includeIdentifiers || outputOptions.m_includeNDARIdentifiers)
         {
@@ -245,25 +246,11 @@ namespace cmtk
             if (outputOptions.m_includeNDARIdentifiers)
             {
                 Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_device, "dicom:SoftwareVersions"), 0, firstImage->GetTagValue(DCM_SoftwareVersions).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_device, "dicom:Modality"), 0, modality.c_str()));
             }
         }
 
-        std::string modality = firstImage->GetTagValue(DCM_Modality);
-        if (outputOptions.m_includeNDARIdentifiers)
-        {
-            mxml_node_t *x_meta = mxmlNewElement(x_root, "ndar");
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:Modality"), 0, modality.c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:FlipAngle"), 0, firstImage->GetTagValue(DCM_FlipAngle).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:MagneticFieldStrength"), 0, firstImage->GetTagValue(DCM_MagneticFieldStrength).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:PhotometricInterpretation"), 0, firstImage->GetTagValue(DCM_PhotometricInterpretation).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:AcquisitionMatrix"), 0, firstImage->GetTagValue(DCM_AcquisitionMatrix).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:SliceThickness"), 0, firstImage->GetTagValue(DCM_SliceThickness).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:Columns"), 0, firstImage->GetTagValue(DCM_Columns).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:Rows"), 0, firstImage->GetTagValue(DCM_Rows).c_str()));
-            Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_meta, "dicom:PixelSpacing"), 0, firstImage->GetTagValue(DCM_PixelSpacing).c_str()));
-        }
         std::transform(modality.begin(), modality.end(), modality.begin(), cmtkWrapToLower);
-
         mxml_node_t *x_modality = mxmlNewElement(x_root, modality.c_str());
         if (modality == "mr")
         {
@@ -389,6 +376,19 @@ namespace cmtk
                     }
                 }
             }
+        
+            if (outputOptions.m_includeNDARIdentifiers)
+            {
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:FlipAngle"), 0, firstImage->GetTagValue(DCM_FlipAngle).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:MagneticFieldStrength"), 0, firstImage->GetTagValue(DCM_MagneticFieldStrength).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:PhotometricInterpretation"), 0, firstImage->GetTagValue(DCM_PhotometricInterpretation).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:AcquisitionMatrix"), 0, firstImage->GetTagValue(DCM_AcquisitionMatrix).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:SliceThickness"), 0, firstImage->GetTagValue(DCM_SliceThickness).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:Columns"), 0, firstImage->GetTagValue(DCM_Columns).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:Rows"), 0, firstImage->GetTagValue(DCM_Rows).c_str()));
+                Coverity::FakeFree(mxmlNewText(mxmlNewElement(x_modality, "dicom:PixelSpacing"), 0, firstImage->GetTagValue(DCM_PixelSpacing).c_str()));
+            }
+        
         }
 
         mxml_node_t *x_stack = mxmlNewElement(x_root, "stack");
