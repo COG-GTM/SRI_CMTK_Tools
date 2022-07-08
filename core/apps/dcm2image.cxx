@@ -285,11 +285,7 @@ int VolumeList::WriteVolumes()
             {
                 if (WriteXML)
                 {
-                    std::string fileExt(".xml");
-                    if (xmlOptions.m_includeNDARIdentifiers) {
-                        fileExt = ".ndar" + fileExt;
-                    }
-                    it->second[0]->WriteXML((uniquePath + fileExt).c_str(), *volume, xmlOptions);
+                    it->second[0]->WriteXML((uniquePath + ".xml").c_str(), *volume, xmlOptions);
                 }
             }
             else
@@ -309,7 +305,7 @@ int VolumeList::WriteVolumes()
 
                 std::string uniquePath = PutNumberAndSanitize(it->first, numberString.str());
 
-                cmtk::UniformVolume::SmartConstPtr volume = it->second[i]->WriteImage(uniquePath.c_str(), EmbedInfo);
+                cmtk::UniformVolume::SmartConstPtr volume = it->second[i]->WriteImage(uniquePath.c_str(), EmbedInfo, !WriteImage);
 
                 if (volume)
                 {
