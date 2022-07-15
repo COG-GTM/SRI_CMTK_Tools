@@ -50,8 +50,6 @@ SET(CMTK_VERSION_PATCH "1p2")
 
 SET(CMTK_VERSION_STRING "${CMTK_VERSION_MAJOR}.${CMTK_VERSION_MINOR}.${CMTK_VERSION_PATCH}")
 
-SET(CMAKE_CXX_STANDARD 98)
-
 #-----------------------------------------------------------------------------
 # Test for some required system information.
 INCLUDE (${CMAKE_ROOT}/Modules/CMakeDetermineSystem.cmake)
