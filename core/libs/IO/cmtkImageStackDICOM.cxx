@@ -221,14 +221,16 @@ namespace cmtk
         mxml_node_t *x_decl;
 
         mxml_node_t *x_root;
+
+        x_decl = mxmlNewXML(NULL);
         if (outputOptions.m_strictXML)
         {
-            x_decl = mxmlNewElement(NULL, "?xml version=\"1.0\" encoding=\"utf-8\" xmlns:dicom=\"http://cmtk.projects.nitrc.org/schemas/dicom\" xmlns:GE=\"http://cmtk.projects.nitrc.org/schemas/dicom/ge\" ?");
             x_root = mxmlNewElement(x_decl, "cmtk");
+            mxmlElementSetAttr(x_root, "xmlns:dicom", "http://cmtk.projects.nitrc.org/schemas/dicom");
+            mxmlElementSetAttr(x_root, "xmlns:GE", "http://cmtk.projects.nitrc.org/schemas/dicom/ge" );
         }
         else
         {
-            x_decl = mxmlNewElement(NULL, "?xml version=\"1.0\" encoding=\"utf-8\"?");
             x_root = x_decl;
         }
 
