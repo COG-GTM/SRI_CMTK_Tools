@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device>
+	<dicom:Manufacturer>SIEMENS</dicom:Manufacturer>
+	<dicom:ManufacturerModel>TrioTim</dicom:ManufacturerModel>
+	<dicom:StationName>MRC35139</dicom:StationName>
+	<dicom:DeviceSerialNumber>35139</dicom:DeviceSerialNumber>
+</device>
+<mr>
+	<dicom:RepetitionTime units="ms">2200.000000</dicom:RepetitionTime>
+	<dicom:EchoTime units="ms">30.000000</dicom:EchoTime>
+	<dicom:InversionTime units="ms">0.000000</dicom:InversionTime>
+	<dicom:ImagingFrequency>123.250616</dicom:ImagingFrequency>
+	<dwellTime units="s">0.000278</dwellTime>
+	<phaseEncodeDirection>COL</phaseEncodeDirection>
+	<phaseEncodeDirectionSign>POS</phaseEncodeDirectionSign>
+	<dicom:SequenceName>*epfid2d1_64</dicom:SequenceName>
+	<type>magnitude</type>
+</mr>
+<stack>
+	<dcmFileDirectory>mr-mosaic-pacs</dcmFileDirectory>
+	<dicom:StudyInstanceUID></dicom:StudyInstanceUID>
+	<dicom:SeriesInstanceUID></dicom:SeriesInstanceUID>
+	<dicom:FrameOfReferenceUID>1.3.12.2.1107.5.2.32.35139.1.20120823092133890.0.0.0</dicom:FrameOfReferenceUID>
+	<dicom:ImageOrientationPatient>1\0\0\0\1\0</dicom:ImageOrientationPatient>
+	<image>
+		<dcmFile>image.dcm</dcmFile>
+		<dicom:AcquisitionTime>101817.600000</dicom:AcquisitionTime>
+		<dicom:ImagePositionPatient>-719.29111117125\-722.38326668739\-50.305274963379</dicom:ImagePositionPatient>
+	</image>
+</stack>
+

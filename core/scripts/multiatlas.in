@@ -1,0 +1,95 @@
+#!/bin/sh
+
+##
+##  Copyright 2011, 2014 SRI International
+##
+##  This file is part of the Computational Morphometry Toolkit.
+##
+##  http://www.nitrc.org/projects/cmtk/
+##
+##  The Computational Morphometry Toolkit is free software: you can
+##  redistribute it and/or modify it under the terms of the GNU General Public
+##  License as published by the Free Software Foundation, either version 3 of
+##  the License, or (at your option) any later version.
+##
+##  The Computational Morphometry Toolkit is distributed in the hope that it
+##  will be useful, but WITHOUT ANY WARRANTY; without even the implied
+##  warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##  GNU General Public License for more details.
+##
+##  You should have received a copy of the GNU General Public License along
+##  with the Computational Morphometry Toolkit.  If not, see
+##  <http://www.gnu.org/licenses/>.
+##
+##  $Revision$
+##
+##  $LastChangedDate$
+##
+##  $LastChangedBy$
+##
+
+export CMTK_BINARY_DIR=${CMTK_BINARY_DIR:-@CMTK_BINARY_DIR_CONFIG@}
+
+# Check for command line arguments, print help if none given
+if test $# -lt 2; then
+    echo "Locally-weighted multi-atlas label fusion"    
+    echo "USAGE: $0 targetImagePath atlasIntensityImage1 atlasLabelImage1 [[atlasIntensityImage2 atlasLabelImage2] ...]"
+    exit 2
+fi
+ 
+TARGET=$1
+shift
+
+ATLAS_I=""
+ATLAS_L=""
+while [ "$1" != "" ]; do
+    ATLAS_I="${ATLAS_I} $1"
+    ATLAS_L="${ATLAS_L} $2"
+    shift 2
+done
+
+echo ${ATLAS_I}
+echo ${ATLAS_L}
+
+tmpdir=`mktemp -d`
+echo ${tmpdir}
+
+idx=0
+for atlas in ${ATLAS_I}; do
+    xfm=${tmpdir}/${idx}.xfm
+    ${CMTK_BINARY_DIR}/registrationx --echo --init com --auto-multi-levels 5 --omit-original-data --delta-f-threshold 0.01 --dofs 6,9 --ncc --pad-ref 0 --symmetric -o ${xfm} ${TARGET} ${atlas}
+    idx=`expr ${idx} + 1`
+done
+
+idx=0
+for atlas in ${ATLAS_I}; do
+    xfm=${tmpdir}/${idx}.xfm
+    ffd=${tmpdir}/${idx}.ffd
+    ${CMTK_BINARY_DIR}/warpx --echo --grid-spacing 80 --grid-refine 3 --min-stepsize 0.25 --max-stepsize 16 --smoothness-constraint-weight 1e-1 --omit-original-data --delta-f-threshold 0.01 --fast --nmi -o ${ffd} --initial ${xfm} ${TARGET} ${atlas}
+    idx=`expr ${idx} + 1`
+done
+
+idx=0
+for atlas in ${ATLAS_I}; do
+    ffd=${tmpdir}/${idx}.ffd
+    out=${tmpdir}/${idx}_i.nii
+    ${CMTK_BINARY_DIR}/reformatx --floating ${atlas} --cubic -o ${out} ${TARGET} ${ffd}
+    idx=`expr ${idx} + 1`
+done
+
+lvote_inputs=""
+
+idx=0
+for atlas in ${ATLAS_L}; do
+    ffd=${tmpdir}/${idx}.ffd
+    out=${tmpdir}/${idx}_l.nii
+    ${CMTK_BINARY_DIR}/reformatx --floating ${atlas} --pv -o ${out} ${TARGET} ${ffd}
+
+    lvote_inputs="${lvote_inputs} ${tmpdir}/${idx}_i.nii ${tmpdir}/${idx}_l.nii"
+
+    idx=`expr ${idx} + 1`
+done
+
+bin/lvote --echo -o output_${idx}_sba.nii --use-sba --patch-radius 5 ${TARGET} ${lvote_inputs}
+
+rm -rf ${tmpdir}

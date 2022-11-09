@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device>
+	<dicom:Manufacturer>SIEMENS</dicom:Manufacturer>
+	<dicom:ManufacturerModel>TrioTim</dicom:ManufacturerModel>
+	<dicom:StationName>MRC35216</dicom:StationName>
+	<dicom:DeviceSerialNumber>35216</dicom:DeviceSerialNumber>
+</device>
+<mr>
+	<dicom:RepetitionTime units="ms">7800.000000</dicom:RepetitionTime>
+	<dicom:EchoTime units="ms">87.000000</dicom:EchoTime>
+	<dicom:InversionTime units="ms">0.000000</dicom:InversionTime>
+	<dicom:ImagingFrequency>123.260136</dicom:ImagingFrequency>
+	<dwellTime units="s">0.000323</dwellTime>
+	<phaseEncodeDirection>COL</phaseEncodeDirection>
+	<phaseEncodeDirectionSign>NEG</phaseEncodeDirectionSign>
+	<dicom:SequenceName>*ep_b0</dicom:SequenceName>
+	<type>magnitude</type>
+	<dwi>
+		<bValue>0</bValue>
+		<bVector coordinateSpace="LPS">0.000000 0.000000 0.000000</bVector>
+		<bVectorImage imageOrientation="LPS">0.000000 0.000000 0.000000</bVectorImage>
+		<bVectorStandard imageOrientation="RAS">0.000000 0.000000 0.000000</bVectorStandard>
+	</dwi>
+</mr>
+<stack>
+	<dcmFileDirectory>mr-dwi-siemens</dcmFileDirectory>
+	<dicom:StudyInstanceUID></dicom:StudyInstanceUID>
+	<dicom:SeriesInstanceUID></dicom:SeriesInstanceUID>
+	<dicom:FrameOfReferenceUID>1.3.12.2.1107.5.2.32.35216.1.20120221181656968.0.0.0</dicom:FrameOfReferenceUID>
+	<dicom:ImageOrientationPatient>1\0\0\0\1\0</dicom:ImageOrientationPatient>
+	<image>
+		<dcmFile>I0002.dcm</dcmFile>
+		<dicom:AcquisitionTime>184813.872500</dicom:AcquisitionTime>
+		<dicom:ImagePositionPatient>-1082.9055690765\-1094.5278453827\-77.094429016113</dicom:ImagePositionPatient>
+	</image>
+	<sliceTime slice="0">0.000000</sliceTime>
+	<sliceTime slice="1">3975.000000</sliceTime>
+	<sliceTime slice="2">120.000000</sliceTime>
+	<sliceTime slice="3">4097.500000</sliceTime>
+	<sliceTime slice="4">240.000000</sliceTime>
+	<sliceTime slice="5">4217.500000</sliceTime>
+	<sliceTime slice="6">362.500000</sliceTime>
+	<sliceTime slice="7">4337.500000</sliceTime>
+	<sliceTime slice="8">482.500000</sliceTime>
+	<sliceTime slice="9">4457.500000</sliceTime>
+	<sliceTime slice="10">602.500000</sliceTime>
+	<sliceTime slice="11">4577.500000</sliceTime>
+	<sliceTime slice="12">722.500000</sliceTime>
+	<sliceTime slice="13">4697.500000</sliceTime>
+	<sliceTime slice="14">842.500000</sliceTime>
+	<sliceTime slice="15">4820.000000</sliceTime>
+	<sliceTime slice="16">965.000000</sliceTime>
+	<sliceTime slice="17">4940.000000</sliceTime>
+	<sliceTime slice="18">1085.000000</sliceTime>
+	<sliceTime slice="19">5060.000000</sliceTime>
+	<sliceTime slice="20">1205.000000</sliceTime>
+	<sliceTime slice="21">5180.000000</sliceTime>
+	<sliceTime slice="22">1325.000000</sliceTime>
+	<sliceTime slice="23">5300.000000</sliceTime>
+	<sliceTime slice="24">1445.000000</sliceTime>
+	<sliceTime slice="25">5422.500000</sliceTime>
+	<sliceTime slice="26">1567.500000</sliceTime>
+	<sliceTime slice="27">5542.500000</sliceTime>
+	<sliceTime slice="28">1687.500000</sliceTime>
+	<sliceTime slice="29">5662.500000</sliceTime>
+	<sliceTime slice="30">1807.500000</sliceTime>
+	<sliceTime slice="31">5782.500000</sliceTime>
+	<sliceTime slice="32">1927.500000</sliceTime>
+	<sliceTime slice="33">5902.500000</sliceTime>
+	<sliceTime slice="34">2047.500000</sliceTime>
+	<sliceTime slice="35">6025.000000</sliceTime>
+	<sliceTime slice="36">2170.000000</sliceTime>
+	<sliceTime slice="37">6145.000000</sliceTime>
+	<sliceTime slice="38">2290.000000</sliceTime>
+	<sliceTime slice="39">6265.000000</sliceTime>
+	<sliceTime slice="40">2410.000000</sliceTime>
+	<sliceTime slice="41">6385.000000</sliceTime>
+	<sliceTime slice="42">2530.000000</sliceTime>
+	<sliceTime slice="43">6505.000000</sliceTime>
+	<sliceTime slice="44">2650.000000</sliceTime>
+	<sliceTime slice="45">6625.000000</sliceTime>
+	<sliceTime slice="46">2770.000000</sliceTime>
+	<sliceTime slice="47">6747.500000</sliceTime>
+	<sliceTime slice="48">2892.500000</sliceTime>
+	<sliceTime slice="49">6867.500000</sliceTime>
+	<sliceTime slice="50">3012.500000</sliceTime>
+	<sliceTime slice="51">6987.500000</sliceTime>
+	<sliceTime slice="52">3132.500000</sliceTime>
+	<sliceTime slice="53">7107.500000</sliceTime>
+	<sliceTime slice="54">3252.500000</sliceTime>
+	<sliceTime slice="55">7227.500000</sliceTime>
+	<sliceTime slice="56">3372.500000</sliceTime>
+	<sliceTime slice="57">7350.000000</sliceTime>
+	<sliceTime slice="58">3495.000000</sliceTime>
+	<sliceTime slice="59">7470.000000</sliceTime>
+	<sliceTime slice="60">3615.000000</sliceTime>
+	<sliceTime slice="61">7590.000000</sliceTime>
+	<sliceTime slice="62">3735.000000</sliceTime>
+	<sliceTime slice="63">7710.000000</sliceTime>
+	<sliceTime slice="64">3855.000000</sliceTime>
+</stack>
+
