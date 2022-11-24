@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mr>
+	<dicom:RepetitionTime units="ms">2260.000000</dicom:RepetitionTime>
+	<dicom:EchoTime units="ms">30.000000</dicom:EchoTime>
+	<dicom:InversionTime units="ms">0.000000</dicom:InversionTime>
+	<dicom:ImagingFrequency>123.260759</dicom:ImagingFrequency>
+	<dwellTime units="s">0.000286</dwellTime>
+	<phaseEncodeDirection>COL</phaseEncodeDirection>
+	<phaseEncodeDirectionSign>POS</phaseEncodeDirectionSign>
+</mr>
+<stack>
+	<dicom:ImageOrientationPatient>1\0\0\0\0.95212939539477\-0.3056952967011</dicom:ImageOrientationPatient>
+	<image>
+		<dicom:AcquisitionTime>144307.010000</dicom:AcquisitionTime>
+		<dicom:ImagePositionPatient>-315.36324739456\-340.71552136397\89.11576887014</dicom:ImagePositionPatient>
+	</image>
+	<sliceTime slice="0">732.500000</sliceTime>
+	<sliceTime slice="1">0.000000</sliceTime>
+	<sliceTime slice="2">800.000000</sliceTime>
+	<sliceTime slice="3">67.500000</sliceTime>
+	<sliceTime slice="4">865.000000</sliceTime>
+	<sliceTime slice="5">132.500000</sliceTime>
+	<sliceTime slice="6">932.500000</sliceTime>
+	<sliceTime slice="7">200.000000</sliceTime>
+	<sliceTime slice="8">1000.000000</sliceTime>
+	<sliceTime slice="9">267.500000</sliceTime>
+	<sliceTime slice="10">1065.000000</sliceTime>
+	<sliceTime slice="11">332.500000</sliceTime>
+	<sliceTime slice="12">1132.500000</sliceTime>
+	<sliceTime slice="13">400.000000</sliceTime>
+	<sliceTime slice="14">1200.000000</sliceTime>
+	<sliceTime slice="15">467.500000</sliceTime>
+	<sliceTime slice="16">1265.000000</sliceTime>
+	<sliceTime slice="17">532.500000</sliceTime>
+	<sliceTime slice="18">1332.500000</sliceTime>
+	<sliceTime slice="19">600.000000</sliceTime>
+	<sliceTime slice="20">1400.000000</sliceTime>
+	<sliceTime slice="21">667.500000</sliceTime>
+</stack>
+

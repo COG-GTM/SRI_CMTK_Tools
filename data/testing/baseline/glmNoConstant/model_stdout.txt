@@ -1,0 +1,23 @@
+NParameters = 2
+
+
+Design Matrix: 
+     age	     sex	   CONST	
+   20.00	    0.00	
+   30.00	    1.00	
+   40.00	    0.00	
+   50.00	    1.00	
+
+
+Singular values:
+	73.4928	0.902572
+
+
+Parameter correlation matrix:
+1.00	0.45	
+0.45	1.00	
+
+
+Parameter normalization factors:
+0	11.180340
+1	0.500000

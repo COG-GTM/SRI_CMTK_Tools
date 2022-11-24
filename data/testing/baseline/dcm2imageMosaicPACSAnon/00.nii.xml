@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mr>
+	<dicom:RepetitionTime units="ms">2200.000000</dicom:RepetitionTime>
+	<dicom:EchoTime units="ms">30.000000</dicom:EchoTime>
+	<dicom:InversionTime units="ms">0.000000</dicom:InversionTime>
+	<dicom:ImagingFrequency>123.250616</dicom:ImagingFrequency>
+	<dwellTime units="s">0.000278</dwellTime>
+	<phaseEncodeDirection>COL</phaseEncodeDirection>
+	<phaseEncodeDirectionSign>POS</phaseEncodeDirectionSign>
+	<type>magnitude</type>
+</mr>
+<stack>
+	<dicom:ImageOrientationPatient>1\0\0\0\1\0</dicom:ImageOrientationPatient>
+	<image>
+		<dicom:AcquisitionTime>101817.600000</dicom:AcquisitionTime>
+		<dicom:ImagePositionPatient>-719.29111117125\-722.38326668739\-50.305274963379</dicom:ImagePositionPatient>
+	</image>
+</stack>
+

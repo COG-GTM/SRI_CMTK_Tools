@@ -1,0 +1,75 @@
+/*
+//
+//  Copyright 2010-2012 SRI International
+//
+//  Copyright 2015 Google, Inc.
+//
+//  This file is part of the Computational Morphometry Toolkit.
+//
+//  http://www.nitrc.org/projects/cmtk/
+//
+//  The Computational Morphometry Toolkit is free software: you can
+//  redistribute it and/or modify it under the terms of the GNU General Public
+//  License as published by the Free Software Foundation, either version 3 of
+//  the License, or (at your option) any later version.
+//
+//  The Computational Morphometry Toolkit is distributed in the hope that it
+//  will be useful, but WITHOUT ANY WARRANTY; without even the implied
+//  warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License along
+//  with the Computational Morphometry Toolkit.  If not, see
+//  <http://www.gnu.org/licenses/>.
+//
+//  $Revision$
+//
+//  $LastChangedDate$
+//
+//  $LastChangedBy$
+//
+*/
+
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#  include <stdio.h>
+#endif
+
+#ifdef CMTK_BUILD_STACKTRACE
+#include <System/cmtkStackBacktrace.h>
+#endif // #ifdef CMTK_BUILD_STACKTRACE
+
+#ifdef CMTK_BUILD_RTRACKER
+#include <System/cmtkRegressionTracker.h>
+#endif // #ifdef CMTK_BUILD_RTRACKER
+
+#include <System/cmtkThreads.h>
+
+int
+main( const int argc, const char* argv[] )
+{
+#if defined(_MSC_VER) && _MSC_VER < 1900
+   _set_output_format( _TWO_DIGIT_EXPONENT );
+#endif
+
+  cmtk::Threads::CheckEnvironment(); // need this to check for "CMTK_NUM_THREADS" and constrain OpenMP accordingly
+
+#ifdef CMTK_BUILD_STACKTRACE
+  cmtk::StackBacktrace::Static();
+#endif
+
+#ifdef CMTK_BUILD_RTRACKER
+  // initialize optional regression tracker
+  cmtk::RegressionTracker::Static();
+#endif
+
+  int exitCode = 0;
+  try
+    {
+    exitCode = doMain( argc, argv );
+    }
+  catch ( const cmtk::ExitException& ex )
+    {
+    exitCode = ex.ExitCode();
+    }
+  return exitCode;
+}

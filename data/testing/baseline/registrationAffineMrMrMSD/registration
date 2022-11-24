@@ -1,0 +1,13 @@
+! TYPEDSTREAM 2.4
+
+registration {
+	reference_study "pat001_mr_T1.hdr"
+	floating_study "pat002_mr_T2.hdr"
+	affine_xform {
+		xlate 1.9500036 -7.539995587 -30.1 
+		rotate -0.2691056575 0.3268947833 0.2097273112 
+		scale 1.020516143 0.9190152267 1.014037361 
+		shear 0 0 0 
+		center 76.49999797 98.54999739 63 
+	}
+}

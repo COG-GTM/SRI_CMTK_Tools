@@ -1,0 +1,17 @@
+! TYPEDSTREAM 2.4
+
+registration {
+	reference_channel_count 2
+	reference_channel "rat_fse_erly.hdr"
+	reference_channel "rat_fse_late.hdr"
+	floating_channel_count 2
+	floating_channel "rat2_fse_erly.hdr"
+	floating_channel "rat2_fse_late.hdr"
+	affine_xform {
+		xlate 0 0.5 1.5 
+		rotate 4.446532041 3.714245889 0 
+		scale 1.016129032 0.9316180236 1.003968254 
+		shear 0 0 0 
+		center 31.5 31.5 7.200000286 
+	}
+}
