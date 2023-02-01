@@ -427,9 +427,12 @@ namespace cmtk
       if ( bvalue_elem != NULL ) 
       {
         this->m_HasBVector = true;
+       
         for ( int idx = 0; idx < 3; ++idx )
         {
-          this->m_Document->getElemValue( bvalue_elem, this->m_BVector[idx], idx );
+          OFString buffer(10, '\0');
+          this->m_Document->getElemValue( bvalue_elem, buffer, idx );
+          this->m_BVector[idx] = atof(buffer.c_str());
         }
       }
       else if ( csaImageHeader != NULL )
