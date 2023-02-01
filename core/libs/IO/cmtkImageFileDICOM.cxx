@@ -406,7 +406,7 @@ namespace cmtk
           break;
         }
       }
-      
+
       if ( this->m_Document->getValue( DCM_Siemens_DiffusionBValue, tmpStr ) != 0 )
       {
         this->m_BValue = atof( tmpStr );
@@ -423,16 +423,14 @@ namespace cmtk
         }
       }
 
-      const DcmElement *bvalue_elem = this->m_Document->search(DCM_Siemens_DiffusionGradientOrientation);
+      DcmElement *bvalue_elem = this->m_Document->search(DCM_Siemens_DiffusionGradientOrientation);
       if ( bvalue_elem != NULL ) 
       {
         this->m_HasBVector = true;
-       
         for ( int idx = 0; idx < 3; ++idx )
         {
-          OFString buffer(10, '\0');
-          this->m_Document->getElemValue( bvalue_elem, buffer, idx );
-          this->m_BVector[idx] = atof(buffer.c_str());
+          bvalue_elem->getFloat64(this->m_BVector[idx], idx);
+          // this->m_Document->getValue(DCM_Siemens_DiffusionGradientOrientation, this->m_BVector[idx], idx );
         }
       }
       else if ( csaImageHeader != NULL )
