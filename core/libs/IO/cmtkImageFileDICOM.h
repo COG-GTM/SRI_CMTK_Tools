@@ -64,6 +64,13 @@
 #define DCM_Siemens_MosaicRefAcqTimes DcmTagKey(0x0019,0x1029)
 #endif
 
+// Siemens private DICOM attributes for Diffusion MR.  
+#define DCM_Siemens_DiffusionDirectionality DcmTagKey(0x0019, 0x100d)
+#define DCM_Siemens_DiffusionBValue DcmTagKey(0x0019,0x100c)
+#define DCM_Siemens_DiffusionGradientOrientation DcmTagKey(0x0019,0x100e)
+#define DCM_Siemens_PhaseEncodingDirectionPositive DcmTagKey(0x0021,0x111c)
+#define DCM_Siemens_RealDwellTime DcmTagKey(0x0021,0x1142)
+
 #include <string>
 #include <map>
 #include <memory>
