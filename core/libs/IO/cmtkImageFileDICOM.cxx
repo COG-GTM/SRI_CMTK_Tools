@@ -461,6 +461,11 @@ namespace cmtk
             this->m_BVector[idx] = atof( csa_it->second[idx].c_str() );
           }
         }
+      } else if ( this->m_BValue == 0 ) {
+        this->m_HasBVector = true;
+        for ( int idx = 0; idx < 3; ++idx ) {
+          this->m_BVector[idx] = 0.0;
+        }
       }
       this->m_IsDWI |= this->m_HasBVector;
 
