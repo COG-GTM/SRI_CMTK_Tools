@@ -344,9 +344,15 @@ namespace cmtk
       // nano-seconds.
       bool dwell_time_found = false;
       double dwell_time_value;
-      if ( dwell_time_found = (this->m_Document->getValue( DCM_Siemens_RealDwellTime, tmpStr ) != 0) )
+      unsigned long dwell_time_length = 0;
+      const Uint8* dwell_time_buffer = NULL;
+      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_RealDwellTime, dwell_time_buffer, &dwell_time_length ).good() ) 
       {
-        dwell_time_value = atof( tmpStr );
+        if( dwell_time_found = (dwell_time_length > 0) )
+        {
+          OFString dwell_time_str( (const char*)dwell_time_buffer, dwell_time_length);
+          dwell_time_value = atof( dwell_time_str.c_str() );
+        }
       } 
       else if ( csaImageHeader != NULL )
       {
@@ -374,16 +380,20 @@ namespace cmtk
       // Get the polarity of the phase encoding from the dedicated 
       // "PhaseEncodingDirectionPositive" private SIEMENS DICOM attribute if 
       // it exists, or from the CSA header if it exists and contains it
-      bool polarity_found = false;
-      char polarity_value;
-      if ( polarity_found = (this->m_Document->getValue( DCM_Siemens_PhaseEncodingDirectionPositive, tmpStr ) != 0) )
+      char polarity_value = '\0';
+      unsigned long polarity_length = 0;
+      const Uint8* polarity_buffer = NULL;
+      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_PhaseEncodingDirectionPositive, polarity_buffer, &polarity_length ).good() ) 
       {
-        polarity_value = tmpStr[0];
-      } 
+        if( polarity_length > 0 )
+        {
+          polarity_value = *((const char*)polarity_buffer);
+        }
+      }
       else if ( csaImageHeader != NULL )
       {
         csa_it = csaImageHeader->find( "PhaseEncodingDirectionPositive");
-        if ( polarity_found = ((csa_it != csaImageHeader->end()) && !csa_it->second.empty()) )
+        if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
         {
           polarity_value = csa_it->second[0][0];
         }
@@ -391,26 +401,31 @@ namespace cmtk
       // use of the polarity_found flag here is to preserve the previous
       // functionality where the m_PhaseEncodeDirectionSign member was
       // only set when polarity_value was found. 
-      if ( polarity_found ) 
+      switch ( polarity_value )
       {
-        switch ( polarity_value )
-        {
-        case '0':
-          this->m_PhaseEncodeDirectionSign = "NEG";
-          break;
-        case '1':
-          this->m_PhaseEncodeDirectionSign = "POS";
-          break;
-        default:
-          this->m_PhaseEncodeDirectionSign = "UNKNOWN";	    
-          break;
-        }
+      case '\0':
+        break;
+      case '0':
+        this->m_PhaseEncodeDirectionSign = "NEG";
+        break;
+      case '1':
+        this->m_PhaseEncodeDirectionSign = "POS";
+        break;
+      default:
+        this->m_PhaseEncodeDirectionSign = "UNKNOWN";
+        break;
       }
 
-      if ( this->m_Document->getValue( DCM_Siemens_DiffusionBValue, tmpStr ) != 0 )
+      unsigned long bvalue_length = 0;
+      const Uint8* bvalue_buffer = NULL;
+      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionBValue, bvalue_buffer, &bvalue_length ).good() ) 
       {
-        this->m_BValue = atof( tmpStr );
-        this->m_IsDWI = true;
+        if( bvalue_length > 0 )
+        {
+          OFString bvalue( (const char*)bvalue_buffer, bvalue_length);
+          this->m_BValue = atof( bvalue.c_str() );
+          this->m_IsDWI = true;
+        }
       } 
       else if ( csaImageHeader != NULL )
       {
@@ -423,15 +438,17 @@ namespace cmtk
         }
       }
 
-      DcmElement *bvalue_elem = this->m_Document->search(DCM_Siemens_DiffusionGradientOrientation);
-      if ( bvalue_elem != NULL ) 
+      unsigned long bvector_length = 0;
+      const Uint8* bvector_buffer = NULL;
+      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionGradientOrientation, bvector_buffer, &bvector_length ).good() ) 
       {
-        this->m_HasBVector = true;
-        for ( int idx = 0; idx < 3; ++idx )
+        bvector_length /= sizeof(double) / sizeof(Uint8);
+        if ( bvector_length >= this->m_BVector.Size() )
         {
-          bvalue_elem->getFloat64(this->m_BVector[idx], idx);
-          // this->m_Document->getValue(DCM_Siemens_DiffusionGradientOrientation, this->m_BVector[idx], idx );
+          std::memcpy( &(this->m_BVector[0]), bvector_buffer, this->m_BVector.Size() * sizeof(double));
+          this->m_HasBVector = true;
         }
+        
       }
       else if ( csaImageHeader != NULL )
       {
@@ -447,17 +464,22 @@ namespace cmtk
       }
       this->m_IsDWI |= this->m_HasBVector;
 
-      std:string directionality;
-      if ( this->m_Document->getValue( DCM_Siemens_DiffusionDirectionality, tmpStr ) != 0 ) 
+      OFString directionality;
+      unsigned long directionality_length = 0;
+      const Uint8* directionality_buffer = NULL;
+      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionDirectionality, directionality_buffer, &directionality_length ).good() ) 
       {
-        directionality = tmpStr;
+        if( directionality_length > 0 )
+        {
+          directionality.assign( (const char *)directionality_buffer, directionality_length);
+        }
       }
-      else if ( csaImageHeader != NULL )
+      else if ( csaImageHeader != NULL ) 
       {
         csa_it = csaImageHeader->find( "DiffusionDirectionality" );
         if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
         {
-          directionality = csa_it->second[0];
+          directionality = csa_it->second[0].c_str();
         }
       }
 
