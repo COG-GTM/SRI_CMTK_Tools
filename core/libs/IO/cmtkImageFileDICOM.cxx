@@ -348,7 +348,7 @@ namespace cmtk
       const Uint8* dwell_time_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_RealDwellTime, dwell_time_buffer, &dwell_time_length ).good() ) 
       {
-        if( dwell_time_found = (dwell_time_length > 0) )
+        if( dwell_time_found = ((dwell_time_length > 0) && (dwell_time_buffer != NULL)))
         {
           OFString dwell_time_str( (const char*)dwell_time_buffer, dwell_time_length);
           dwell_time_value = atof( dwell_time_str.c_str() );
@@ -385,7 +385,7 @@ namespace cmtk
       const Uint8* polarity_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_PhaseEncodingDirectionPositive, polarity_buffer, &polarity_length ).good() ) 
       {
-        if( polarity_length > 0 )
+        if( polarity_length > 0 && polarity_buffer != NULL)
         {
           polarity_value = *((const char*)polarity_buffer);
         }
@@ -416,15 +416,16 @@ namespace cmtk
         break;
       }
 
+      bool bvalue_found = false;
       unsigned long bvalue_length = 0;
       const Uint8* bvalue_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionBValue, bvalue_buffer, &bvalue_length ).good() ) 
       {
-        if( bvalue_length > 0 )
+        if( bvalue_length > 0 && bvalue_buffer != NULL )
         {
           OFString bvalue( (const char*)bvalue_buffer, bvalue_length);
           this->m_BValue = atof( bvalue.c_str() );
-          this->m_IsDWI = true;
+          bvalue_found = true;
         }
       } 
       else if ( csaImageHeader != NULL )
@@ -434,21 +435,21 @@ namespace cmtk
         {
           this->m_BValue = atof( csa_it->second[0].c_str() );
           // 20161028 djk: make m_IsDWI is always true if the B_value field is defined
-          this->m_IsDWI = true;
+          bvalue_found = true;
         }
       }
+      this->m_IsDWI |= bvalue_found;
 
       unsigned long bvector_length = 0;
       const Uint8* bvector_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionGradientOrientation, bvector_buffer, &bvector_length ).good() ) 
       {
         bvector_length /= sizeof(double) / sizeof(Uint8);
-        if ( bvector_length >= this->m_BVector.Size() )
+        if ( bvector_length >= this->m_BVector.Size() && bvector_buffer != NULL)
         {
           std::memcpy( &(this->m_BVector[0]), bvector_buffer, this->m_BVector.Size() * sizeof(double));
           this->m_HasBVector = true;
         }
-        
       }
       else if ( csaImageHeader != NULL )
       {
@@ -461,7 +462,7 @@ namespace cmtk
             this->m_BVector[idx] = atof( csa_it->second[idx].c_str() );
           }
         }
-      } else if ( this->m_BValue == 0 ) {
+      } else if ( bvalue_found ) {
         this->m_HasBVector = true;
         for ( int idx = 0; idx < 3; ++idx ) {
           this->m_BVector[idx] = 0.0;
@@ -474,7 +475,7 @@ namespace cmtk
       const Uint8* directionality_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionDirectionality, directionality_buffer, &directionality_length ).good() ) 
       {
-        if( directionality_length > 0 )
+        if( directionality_length > 0 && directionality_buffer != NULL )
         {
           directionality.assign( (const char *)directionality_buffer, directionality_length);
         }
@@ -492,6 +493,11 @@ namespace cmtk
       {
         this->m_IsDWI = true;
         this->m_HasBVector = true;
+      }
+      else if ( 0 == directionality.compare( 0, 9, "ISOTROPIC" ) ) 
+      {
+        this->m_IsDWI = true;
+        this->m_HasBVector = false;
       }
 
       if ( csaImageHeader != NULL ) delete csaImageHeader;
