@@ -325,17 +325,10 @@ namespace cmtk
       // the retrieval of subsequent imagining quantities
       const Uint8* csaImageHeaderInfo = NULL;
       unsigned long csaImageHeaderLength = 0;
-      SiemensCSAHeader* csaImageHeader = NULL;
+      std::auto_ptr<SiemensCSAHeader> csaImageHeader;
       if ( this->m_Dataset->findAndGetUint8Array( DcmTagKey(0x0029,0x1010), csaImageHeaderInfo, &csaImageHeaderLength ).status() == OF_ok ) // the "Image" CSA header, not the "Series" header.
       {
-        // Would like to not have to use a heap allocated SiemensCSAHeader
-        // object, but the SiemensCSAHeader constructor is not written in a
-        // manner that expects the case where the passed csaImageHeaderInfo
-        // is empty and csaImageHeaderLength == 0. If this were changed,
-        // a stack allocated SiemensCSAHeader could be used, and all 
-        // conditionals with csaImageHeader != NULL could be replaced with
-        // !csaImageHeader.empty().
-        csaImageHeader = new SiemensCSAHeader( (const char*)csaImageHeaderInfo, csaImageHeaderLength );
+        csaImageHeader.reset( new SiemensCSAHeader( (const char*)csaImageHeaderInfo, csaImageHeaderLength ) );
       }
 
       // Get the dwell time from the dedicated "RealDwellTime" private  
@@ -348,13 +341,13 @@ namespace cmtk
       const Uint8* dwell_time_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_RealDwellTime, dwell_time_buffer, &dwell_time_length ).good() ) 
       {
-        if( dwell_time_found = ((dwell_time_length > 0) && (dwell_time_buffer != NULL)))
+        if( dwell_time_found = ((dwell_time_buffer != NULL) && (dwell_time_length > 0)) )
         {
           OFString dwell_time_str( (const char*)dwell_time_buffer, dwell_time_length);
           dwell_time_value = atof( dwell_time_str.c_str() );
         }
       } 
-      else if ( csaImageHeader != NULL )
+      else if ( csaImageHeader.get() != NULL )
       {
         csa_it = csaImageHeader->find( "RealDwellTime" );
         if ( dwell_time_found = ((csa_it != csaImageHeader->end()) && !csa_it->second.empty()) )
@@ -385,12 +378,12 @@ namespace cmtk
       const Uint8* polarity_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_PhaseEncodingDirectionPositive, polarity_buffer, &polarity_length ).good() ) 
       {
-        if( polarity_length > 0 && polarity_buffer != NULL)
+        if( polarity_buffer != NULL && polarity_length > 0 )
         {
           polarity_value = *((const char*)polarity_buffer);
         }
       }
-      else if ( csaImageHeader != NULL )
+      else if ( csaImageHeader.get() != NULL )
       {
         csa_it = csaImageHeader->find( "PhaseEncodingDirectionPositive");
         if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
@@ -421,66 +414,62 @@ namespace cmtk
       const Uint8* bvalue_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionBValue, bvalue_buffer, &bvalue_length ).good() ) 
       {
-        if( bvalue_length > 0 && bvalue_buffer != NULL )
+        if( bvalue_buffer != NULL && bvalue_length > 0 )
         {
           OFString bvalue( (const char*)bvalue_buffer, bvalue_length);
           this->m_BValue = atof( bvalue.c_str() );
           bvalue_found = true;
         }
       } 
-      else if ( csaImageHeader != NULL )
+      else if ( csaImageHeader.get() != NULL )
       {
         csa_it = csaImageHeader->find( "B_value" );
         if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
         {
           this->m_BValue = atof( csa_it->second[0].c_str() );
-          // 20161028 djk: make m_IsDWI is always true if the B_value field is defined
           bvalue_found = true;
         }
       }
+      // 20161028 djk: make m_IsDWI is always true if the B_value field is defined
       this->m_IsDWI |= bvalue_found;
 
       unsigned long bvector_length = 0;
       const Uint8* bvector_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionGradientOrientation, bvector_buffer, &bvector_length ).good() ) 
       {
-        bvector_length /= sizeof(double) / sizeof(Uint8);
-        if ( bvector_length >= this->m_BVector.Size() && bvector_buffer != NULL)
+        if ( bvector_buffer != NULL && (bvector_length * sizeof(Uint8)) >= (this->m_BVector.Size() * sizeof(double)) )
         {
-          std::memcpy( &(this->m_BVector[0]), bvector_buffer, this->m_BVector.Size() * sizeof(double));
+          const double* input_itr = (const double *) bvector_buffer;
+          std::copy(input_itr, input_itr + this->m_BVector.Size(), this->m_BVector.begin());
           this->m_HasBVector = true;
-        }
+        }  
       }
-      else if ( csaImageHeader != NULL )
+      else if ( csaImageHeader.get() != NULL )
       {
         csa_it = csaImageHeader->find( "DiffusionGradientDirection" );	
-        if ( (csa_it != csaImageHeader->end()) && (csa_it->second.size() >= 3) )
+        if ( (csa_it != csaImageHeader->end()) && (csa_it->second.size() >= this->m_BVector.Size()) )
         {
           this->m_HasBVector = true;
-          for ( int idx = 0; idx < 3; ++idx )
+          for ( size_t idx = 0; idx < this->m_BVector.Size(); ++idx )
           {
             this->m_BVector[idx] = atof( csa_it->second[idx].c_str() );
           }
         }
-      } else if ( bvalue_found ) {
-        this->m_HasBVector = true;
-        for ( int idx = 0; idx < 3; ++idx ) {
-          this->m_BVector[idx] = 0.0;
-        }
       }
       this->m_IsDWI |= this->m_HasBVector;
+      this->m_HasBVector |= bvalue_found;
 
       OFString directionality;
       unsigned long directionality_length = 0;
       const Uint8* directionality_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionDirectionality, directionality_buffer, &directionality_length ).good() ) 
       {
-        if( directionality_length > 0 && directionality_buffer != NULL )
+        if( directionality_buffer != NULL && directionality_length > 0 )
         {
           directionality.assign( (const char *)directionality_buffer, directionality_length);
         }
       }
-      else if ( csaImageHeader != NULL ) 
+      else if ( csaImageHeader.get() != NULL ) 
       {
         csa_it = csaImageHeader->find( "DiffusionDirectionality" );
         if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
@@ -499,8 +488,6 @@ namespace cmtk
         this->m_IsDWI = true;
         this->m_HasBVector = false;
       }
-
-      if ( csaImageHeader != NULL ) delete csaImageHeader;
     }
   }
 
