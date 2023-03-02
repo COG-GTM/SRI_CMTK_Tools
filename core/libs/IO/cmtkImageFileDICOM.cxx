@@ -35,7 +35,6 @@
 #include <System/cmtkDebugOutput.h>
 
 #include <IO/cmtkFileFormat.h>
-#include <IO/cmtkSiemensCSAHeader.h>
 
 #include <dcmtk/dcmimgle/diutils.h>
 
@@ -290,6 +289,179 @@ namespace cmtk
     this->m_TagToStringMap[DCM_AcquisitionMatrix] = join(vAcquisitionMatrix.begin(), vAcquisitionMatrix.end(), "\\");
   }
 
+  bool 
+  ImageFileDICOM::DoVendorTagsSiemensDwellTime(const SiemensCSAHeader* csaImageHeader)
+  {
+    // Get the dwell time from the dedicated "RealDwellTime" private  
+    // SIEMENS DICOM attribute if it exists, or from the CSA header if it  
+    // exists and contains it. The units of the SIEMENS dwell times are
+    // nano-seconds.
+    bool dwell_time_found = false;
+    double dwell_time_value;
+    unsigned long dwell_time_length = 0;
+    const Uint8* dwell_time_buffer = NULL;
+    OFString dwell_time_str;
+
+    if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_RealDwellTime, dwell_time_buffer, &dwell_time_length ).good() ) 
+    {
+      if( dwell_time_found = ((dwell_time_buffer != NULL) && (dwell_time_length > 0)) )
+      {
+        dwell_time_str.assign( OFstatic_cast(const char*, dwell_time_buffer), dwell_time_length);
+        dwell_time_value = atof( dwell_time_str.c_str() );
+      }
+    } 
+
+    if ( !dwell_time_found && this->m_Document->getValue(DCM_Siemens_RealDwellTime, dwell_time_str) > 0 )
+    {
+      if ( dwell_time_found = !dwell_time_str.empty() ) 
+        dwell_time_value = atof( dwell_time_str.c_str() );
+    }
+
+    if ( !dwell_time_found && csaImageHeader != NULL )
+    {
+      SiemensCSAHeader::const_iterator csa_it = csaImageHeader->find( "RealDwellTime" );
+      if ( dwell_time_found = ((csa_it != csaImageHeader->end()) && !csa_it->second.empty()) )
+        dwell_time_value = atof( csa_it->second[0].c_str() );
+    }
+    // I do not know why the reciprocal of the reported dwell time is being
+    // stored in the dwell time member. Does this not give us Bandwidth
+    // instead of dwell time?
+    if ( dwell_time_found ) 
+    {
+      if ( dwell_time_value != 0.0 ) 
+        this->m_DwellTime = 1.0 / dwell_time_value;
+      else
+        this->m_DwellTime = 0.0;
+    }
+    return dwell_time_found;
+  }
+
+  bool 
+  ImageFileDICOM::DoVendorTagsSiemensPhaseEncodeDirection(const SiemensCSAHeader* csaImageHeader)
+  {
+    // Get the polarity of the phase encoding from the dedicated 
+    // "PhaseEncodingDirectionPositive" private SIEMENS DICOM attribute if 
+    // it exists, or from the CSA header if it exists and contains it
+    bool polarity_found = false;
+    char polarity_value = '\0';
+    unsigned long polarity_length = 0;
+    const Uint8* polarity_buffer = NULL;
+    OFString polarity_str;
+
+    if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_PhaseEncodingDirectionPositive, polarity_buffer, &polarity_length ).good() ) 
+    {
+      if( polarity_found = (polarity_buffer != NULL && polarity_length > 0) )
+        polarity_value = *( OFstatic_cast(const char*, polarity_buffer) );
+    }
+
+    if ( !polarity_found && this->m_Document->getValue(DCM_Siemens_PhaseEncodingDirectionPositive, polarity_str) )
+    {
+      if ( polarity_found = !polarity_str.empty() )
+        polarity_value = polarity_str[0];
+    }
+
+    if ( !polarity_found && csaImageHeader != NULL )
+    {
+      SiemensCSAHeader::const_iterator csa_it = csaImageHeader->find( "PhaseEncodingDirectionPositive");
+      if ( polarity_found = (csa_it != csaImageHeader->end() && !csa_it->second.empty()) )
+        polarity_value = csa_it->second[0][0];
+
+    }
+    // use of the polarity_found flag here is to preserve the previous
+    // functionality where the m_PhaseEncodeDirectionSign member was
+    // only set when polarity_value was found. 
+    if ( polarity_found )
+    {
+      switch ( polarity_value )
+      {
+      case '0':
+        this->m_PhaseEncodeDirectionSign = "NEG";
+        break;
+      case '1':
+        this->m_PhaseEncodeDirectionSign = "POS";
+        break;
+      default:
+        this->m_PhaseEncodeDirectionSign = "UNKNOWN";	    
+        break;
+      }
+    }
+    return polarity_found;
+  }
+
+  bool 
+  ImageFileDICOM::DoVendorTagsSiemensDiffusionBValue(const SiemensCSAHeader* csaImageHeader)
+  {
+    unsigned long bvalue_length = 0;
+    const Uint8* bvalue_buffer = NULL;
+    OFString bvalue_str;
+
+    if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionBValue, bvalue_buffer, &bvalue_length ).good() ) 
+    {
+      if( bvalue_buffer != NULL && bvalue_length > 0 )
+      {
+        bvalue_str.assign( OFstatic_cast(const char*, bvalue_buffer), bvalue_length);
+        this->m_BValue = atof( bvalue_str.c_str() );
+        return true;
+      }
+    }
+
+    if ( this->m_Document->getValue(DCM_Siemens_DiffusionBValue, bvalue_str) > 0 )
+    {
+      if( !bvalue_str.empty() )
+      {
+        this->m_BValue = atof( bvalue_str.c_str() );
+        return true;
+      }
+    }
+
+    if ( csaImageHeader != NULL )
+    {
+      SiemensCSAHeader::const_iterator csa_it = csaImageHeader->find( "B_value" );
+      if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
+      {
+        this->m_BValue = atof( csa_it->second[0].c_str() );
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool 
+  ImageFileDICOM::DoVendorTagsSiemensDiffusionBVector(const SiemensCSAHeader* csaImageHeader)
+  {
+    unsigned long bvector_length = 0;
+    const Uint8* bvector_buffer = NULL;
+
+    if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionGradientOrientation, bvector_buffer, &bvector_length ).good() ) 
+    {
+      if ( bvector_buffer != NULL && (bvector_length * sizeof(Uint8)) >= (this->m_BVector.Size() * sizeof(double)) )
+      {
+        const double* input_itr = OFstatic_cast(const double*, bvector_buffer);
+        std::copy(input_itr, input_itr + this->m_BVector.Size(), this->m_BVector.begin());
+        return true;
+      }  
+    }
+
+    if ( this->m_Document->getValue(DCM_Siemens_DiffusionGradientOrientation, this->m_BVector[0], 0) >= this->m_BVector.Size() )
+    {
+      for ( size_t idx = 1; idx < this->m_BVector.Size(); ++idx )
+        this->m_Document->getValue(DCM_Siemens_DiffusionGradientOrientation, this->m_BVector[idx], idx);
+      return true;
+    }
+
+    if ( csaImageHeader != NULL )
+    {
+      SiemensCSAHeader::const_iterator csa_it = csaImageHeader->find( "DiffusionGradientDirection" );	
+      if ( (csa_it != csaImageHeader->end()) && (csa_it->second.size() >= this->m_BVector.Size()) )
+      {
+        for ( size_t idx = 0; idx < this->m_BVector.Size(); ++idx )
+          this->m_BVector[idx] = atof( csa_it->second[idx].c_str() );
+        return true;
+      }
+    }
+    return false;
+  }
+
   void
   ImageFileDICOM::DoVendorTagsSiemens()
   {
@@ -328,165 +500,52 @@ namespace cmtk
       std::auto_ptr<SiemensCSAHeader> csaImageHeader;
       if ( this->m_Dataset->findAndGetUint8Array( DcmTagKey(0x0029,0x1010), csaImageHeaderInfo, &csaImageHeaderLength ).status() == OF_ok ) // the "Image" CSA header, not the "Series" header.
       {
-        csaImageHeader.reset( new SiemensCSAHeader( (const char*)csaImageHeaderInfo, csaImageHeaderLength ) );
+        csaImageHeader.reset( new SiemensCSAHeader( OFstatic_cast(const char*, csaImageHeaderInfo), csaImageHeaderLength ) );
       }
 
-      // Get the dwell time from the dedicated "RealDwellTime" private  
-      // SIEMENS DICOM attribute if it exists, or from the CSA header if it  
-      // exists and contains it. The units of the SIEMENS dwell times are
-      // nano-seconds.
-      bool dwell_time_found = false;
-      double dwell_time_value;
-      unsigned long dwell_time_length = 0;
-      const Uint8* dwell_time_buffer = NULL;
-      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_RealDwellTime, dwell_time_buffer, &dwell_time_length ).good() ) 
-      {
-        if( dwell_time_found = ((dwell_time_buffer != NULL) && (dwell_time_length > 0)) )
-        {
-          OFString dwell_time_str( (const char*)dwell_time_buffer, dwell_time_length);
-          dwell_time_value = atof( dwell_time_str.c_str() );
-        }
-      } 
-      else if ( csaImageHeader.get() != NULL )
-      {
-        csa_it = csaImageHeader->find( "RealDwellTime" );
-        if ( dwell_time_found = ((csa_it != csaImageHeader->end()) && !csa_it->second.empty()) )
-        {
-          dwell_time_value = atof( csa_it->second[0].c_str() );
-        }
-      }
-      // I do not know why the reciprocal of the reported dwell time is being
-      // stored in the dwell time member. Does this not give us Bandwidth
-      // instead of dwell time?
-      if ( dwell_time_found ) 
-      {
-        if ( dwell_time_value != 0.0 ) 
-        {
-          this->m_DwellTime = 1.0 / dwell_time_value;
-        }
-        else
-        {
-          this->m_DwellTime = 0.0;
-        }
-      }
-
-      // Get the polarity of the phase encoding from the dedicated 
-      // "PhaseEncodingDirectionPositive" private SIEMENS DICOM attribute if 
-      // it exists, or from the CSA header if it exists and contains it
-      char polarity_value = '\0';
-      unsigned long polarity_length = 0;
-      const Uint8* polarity_buffer = NULL;
-      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_PhaseEncodingDirectionPositive, polarity_buffer, &polarity_length ).good() ) 
-      {
-        if( polarity_buffer != NULL && polarity_length > 0 )
-        {
-          polarity_value = *((const char*)polarity_buffer);
-        }
-      }
-      else if ( csaImageHeader.get() != NULL )
-      {
-        csa_it = csaImageHeader->find( "PhaseEncodingDirectionPositive");
-        if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
-        {
-          polarity_value = csa_it->second[0][0];
-        }
-      }
-      // use of the polarity_found flag here is to preserve the previous
-      // functionality where the m_PhaseEncodeDirectionSign member was
-      // only set when polarity_value was found. 
-      switch ( polarity_value )
-      {
-      case '\0':
-        break;
-      case '0':
-        this->m_PhaseEncodeDirectionSign = "NEG";
-        break;
-      case '1':
-        this->m_PhaseEncodeDirectionSign = "POS";
-        break;
-      default:
-        this->m_PhaseEncodeDirectionSign = "UNKNOWN";
-        break;
-      }
-
-      bool bvalue_found = false;
-      unsigned long bvalue_length = 0;
-      const Uint8* bvalue_buffer = NULL;
-      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionBValue, bvalue_buffer, &bvalue_length ).good() ) 
-      {
-        if( bvalue_buffer != NULL && bvalue_length > 0 )
-        {
-          OFString bvalue( (const char*)bvalue_buffer, bvalue_length);
-          this->m_BValue = atof( bvalue.c_str() );
-          bvalue_found = true;
-        }
-      } 
-      else if ( csaImageHeader.get() != NULL )
-      {
-        csa_it = csaImageHeader->find( "B_value" );
-        if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
-        {
-          this->m_BValue = atof( csa_it->second[0].c_str() );
-          bvalue_found = true;
-        }
-      }
+      DoVendorTagsSiemensDwellTime(csaImageHeader.get());
+      DoVendorTagsSiemensPhaseEncodeDirection(csaImageHeader.get());
+ 
+      bool bvalue_found = DoVendorTagsSiemensDiffusionBValue(csaImageHeader.get());
       // 20161028 djk: make m_IsDWI is always true if the B_value field is defined
       this->m_IsDWI |= bvalue_found;
 
-      unsigned long bvector_length = 0;
-      const Uint8* bvector_buffer = NULL;
-      if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionGradientOrientation, bvector_buffer, &bvector_length ).good() ) 
-      {
-        if ( bvector_buffer != NULL && (bvector_length * sizeof(Uint8)) >= (this->m_BVector.Size() * sizeof(double)) )
-        {
-          const double* input_itr = (const double *) bvector_buffer;
-          std::copy(input_itr, input_itr + this->m_BVector.Size(), this->m_BVector.begin());
-          this->m_HasBVector = true;
-        }  
-      }
-      else if ( csaImageHeader.get() != NULL )
-      {
-        csa_it = csaImageHeader->find( "DiffusionGradientDirection" );	
-        if ( (csa_it != csaImageHeader->end()) && (csa_it->second.size() >= this->m_BVector.Size()) )
-        {
-          this->m_HasBVector = true;
-          for ( size_t idx = 0; idx < this->m_BVector.Size(); ++idx )
-          {
-            this->m_BVector[idx] = atof( csa_it->second[idx].c_str() );
-          }
-        }
-      }
-      this->m_IsDWI |= this->m_HasBVector;
+      this->m_HasBVector = DoVendorTagsSiemensDiffusionBVector(csaImageHeader.get());
       this->m_HasBVector |= bvalue_found;
+      this->m_IsDWI |= this->m_HasBVector;
 
+      bool found_directionality = false;
       OFString directionality;
       unsigned long directionality_length = 0;
       const Uint8* directionality_buffer = NULL;
       if ( this->m_Dataset->findAndGetUint8Array( DCM_Siemens_DiffusionDirectionality, directionality_buffer, &directionality_length ).good() ) 
       {
-        if( directionality_buffer != NULL && directionality_length > 0 )
-        {
-          directionality.assign( (const char *)directionality_buffer, directionality_length);
-        }
-      }
-      else if ( csaImageHeader.get() != NULL ) 
-      {
-        csa_it = csaImageHeader->find( "DiffusionDirectionality" );
-        if ( (csa_it != csaImageHeader->end()) && !csa_it->second.empty() )
-        {
-          directionality = csa_it->second[0].c_str();
-        }
+        if( found_directionality = (directionality_buffer != NULL && directionality_length > 0) )
+          directionality.assign( OFstatic_cast(const char *, directionality_buffer), directionality_length );
       }
 
-      if ( 0 == directionality.compare( 0, 11, "DIRECTIONAL" ) ) 
+      if ( !found_directionality )
+        found_directionality = (this->m_Document->getValue(DCM_Siemens_DiffusionDirectionality, directionality) > 0);
+
+      if ( !found_directionality  && csaImageHeader.get() != NULL ) 
       {
-        this->m_IsDWI = true;
-        this->m_HasBVector = true;
+        csa_it = csaImageHeader->find( "DiffusionDirectionality" );
+        if ( found_directionality = (csa_it != csaImageHeader->end() && !csa_it->second.empty()) )
+          directionality = csa_it->second[0].c_str();
       }
-      else if ( 0 == directionality.compare( 0, 9, "ISOTROPIC" ) ) 
+
+      if ( found_directionality )
       {
-        this->m_IsDWI = true;
-        this->m_HasBVector = false;
+        if ( 0 == directionality.compare( 0, 11, "DIRECTIONAL" ) ) 
+        {
+          this->m_IsDWI = true;
+          this->m_HasBVector = true;
+        }
+        else if ( 0 == directionality.compare( 0, 9, "ISOTROPIC" ) ) 
+        {
+          this->m_IsDWI = true;
+          this->m_HasBVector = false;
+        }
       }
     }
   }
