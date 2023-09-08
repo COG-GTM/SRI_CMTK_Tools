@@ -390,7 +390,7 @@ DICOM::DemosaicAndGetNormal
             }
           }
         
-        // For the following, see here: https://urldefense.us/v3/__http://nipy.sourceforge.net/nibabel/dicom/siemens_csa.html*csa-header__;Iw!!Nv3xtKNH_4uope0!ndfWljrOlzM7dT_xx5QuWtZEB60Mu0Or-yOJPmuS0ZcQBQOyqvMoxMwXdqPBbXCPxvzloVw10H8H$ 
+        // For the following, see here: https://github.com/nipy/nibabel/blob/master/doc/source/dicom/siemens_csa.rst
         this->ParseSiemensCSA( DcmTagKey(0x0029,0x1020), unmosaicImageCols, unmosaicImageRows, dims[2], sliceNormal); // series information
         this->ParseSiemensCSA( DcmTagKey(0x0029,0x1010), unmosaicImageCols, unmosaicImageRows, dims[2], sliceNormal); // image information
       
@@ -399,7 +399,7 @@ DICOM::DemosaicAndGetNormal
           {
           const int xMosaic = dims[0] / unmosaicImageCols;
 
-          // For reasoning, see the folllowing https://urldefense.us/v3/__https://nipy.org/nibabel/dicom/dicom_mosaic.html*dicom-orientation-for-mosaic__;Iw!!Nv3xtKNH_4uope0!ndfWljrOlzM7dT_xx5QuWtZEB60Mu0Or-yOJPmuS0ZcQBQOyqvMoxMwXdqPBbXCPxvzloY8YZStU$ 
+          // For reasoning, see the folllowing https://github.com/nipy/nibabel/blob/master/doc/source/dicom/dicom_mosaic.rst
           imageOrigin += CornerToCenterTranslation(imageOrientation, deltas, dims);
           
           dims[0] = unmosaicImageCols;
